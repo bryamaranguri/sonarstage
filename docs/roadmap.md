@@ -36,5 +36,6 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [ ] Instalador `.dmg` y asistente de primer arranque
 - [ ] Letras a proyector (iglesia)
 - [ ] Luces por MIDI/DMX
+- [ ] Pendiente (amigo): mover niveles de parámetros de plugins en la consola Apollo desde el show. Investigar qué permite controlar la consola por MIDI (la documentación de UAD solo menciona tap tempo).
 - [x] Pistas MIDI: HX Stomp (preset/snapshot/CC por sección) y tap tempo para la consola UAD — *pendiente: ruteo a los puertos y prueba con equipos reales*
 - [ ] Separación de stems para secuencias premezcladas
