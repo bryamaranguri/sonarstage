@@ -173,9 +173,13 @@ EG 1 desde la 6. En vivo + secuencia: −18.0 LUFS, pico −2.1 (idéntico a sin
 
 - Las fronteras entre secciones usan fundidos complementarios de 10 ms: la suma de
   en vivo y secuencia es exacta.
-- Limitación conocida: la frontera es el tiempo 1. Una anacrusa (notas antes del
-  tiempo 1 que pertenecen a la sección siguiente) queda con la sección anterior. Si
-  molesta, se puede adelantar la frontera medio tiempo.
+- Anacrusa: por defecto la frontera es el tiempo 1. Para las canciones donde una
+  parte entra antes, cada sección puede adelantar su inicio N tiempos (`pickupBeats`,
+  `parts pickup`); los locators siguen en el tiempo 1.
+- Coros: un músico puede dejar lo que cubre sonando en la secuencia a un nivel menor
+  (`sequenceLevelDb`, p. ej. −6 dB para reforzar a los cantantes). Su pista EN VIVO
+  tiene el resto, así que al desmutearla vuelve al nivel completo. La voz principal,
+  en cambio, sale por completo de la secuencia.
 - Un mismo stem en la misma sección no puede ser de dos músicos presentes (sonaría
   doble al desmutear): el render lo rechaza.
 

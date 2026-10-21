@@ -5,6 +5,7 @@
     python -m sonarstage_import.parts set <song> --band <banda.json> --musician guitarra --secciones "3=EG 1" "4,5=EG 2+EG 3"
     python -m sonarstage_import.parts set <song> --band <banda.json> --musician guitarra --whole "EG 1"
     python -m sonarstage_import.parts clear <song> --band <banda.json> --musician guitarra
+    python -m sonarstage_import.parts pickup <song> 6 1        (sección 6 empieza 1 tiempo antes)
 
 A band (shared/banda.schema.json) lists its musicians, each with the stems they cover
 by default. For a song, a musician can instead have a matrix: per section, which
@@ -65,11 +66,17 @@ def beats_per_bar(song):
 
 
 def section_bounds(song, n_frames, sr):
-    """[(startBar, first_frame, end_frame)] covering the whole file."""
-    bar_s = beats_per_bar(song) * 60 / song["tempo"]["bpm"]
+    """[(startBar, first_frame, end_frame)] covering the whole file.
+
+    A section with `pickupBeats` (anacrusis) starts that many beats before its downbeat,
+    so notes leading into it belong to whoever plays it.
+    """
+    beat_s = 60 / song["tempo"]["bpm"]
+    bar_s = beats_per_bar(song) * beat_s
     t0 = song["tempo"].get("firstDownbeatSec", 0.0)
     starts = [s["startBar"] for s in song["sections"]]
-    frames = [0] + [min(n_frames, max(0, round((t0 + (b - 1) * bar_s) * sr))) for b in starts[1:]]
+    frames = [0] + [min(n_frames, max(0, round((t0 + (s["startBar"] - 1) * bar_s - s.get("pickupBeats", 0) * beat_s) * sr)))
+                    for s in song["sections"][1:]]
     return [(b, a, frames[i + 1] if i + 1 < len(frames) else n_frames) for i, (b, a) in enumerate(zip(starts, frames))]
 
 
@@ -111,7 +118,8 @@ def coverage(song, band, present=None):
                     stems[labels[w.lower()]] = None
             if not stems:
                 warnings.append(f"{m['name']}: la canción no tiene {', '.join(m['default'])}; no tendrá pista en vivo.")
-        result.append({"id": m["id"], "name": m["name"], "stems": stems})
+        result.append({"id": m["id"], "name": m["name"], "stems": stems,
+                       "sequence_level_db": m.get("sequenceLevelDb")})
 
     # one stem, one section, one musician: otherwise it would sound twice when unmuted
     claims = {}
@@ -183,6 +191,23 @@ def set_parts(song_dir, band, musician_id, specs=(), whole=None):
     # validate this musician's matrix; conflicts between musicians are checked at render
     # time, among those present that week (editing order must not matter)
     coverage(song, band, [musician_id])
+    _validate(song, "cancion.schema.json")
+    song_path.write_text(json.dumps(song, indent=1, ensure_ascii=False))
+    return song
+
+
+def set_pickup(song_dir, section_number, beats):
+    song_path = Path(song_dir) / "cancion.json"
+    song = json.loads(song_path.read_text())
+    if not 2 <= section_number <= len(song["sections"]):
+        raise PartsError(f"La anacrusa va de la sección 2 a la {len(song['sections'])}.")
+    if not 0 <= beats <= beats_per_bar(song):
+        raise PartsError(f"Entre 0 y {beats_per_bar(song)} tiempos.")
+    sec = song["sections"][section_number - 1]
+    if beats:
+        sec["pickupBeats"] = beats
+    else:
+        sec.pop("pickupBeats", None)
     _validate(song, "cancion.schema.json")
     song_path.write_text(json.dumps(song, indent=1, ensure_ascii=False))
     return song
@@ -260,6 +285,8 @@ def main(argv=None):
     st.add_argument("--musician", required=True)
     st.add_argument("--secciones", dest="specs", nargs="+", default=[], metavar="SECCIONES=STEMS")
     st.add_argument("--whole")
+    pk = sub.add_parser("pickup", help="Anacrusa: adelantar el inicio de una sección N tiempos")
+    pk.add_argument("song"); pk.add_argument("section", type=int); pk.add_argument("beats", type=float)
     cl = sub.add_parser("clear"); cl.add_argument("song"); cl.add_argument("--band", required=True)
     cl.add_argument("--musician", required=True)
     args = ap.parse_args(argv)
@@ -275,6 +302,9 @@ def main(argv=None):
                 raise PartsError("Indica las secciones (\"3=EG 1\") o --whole \"EG 1\".")
             song = set_parts(args.song, band, args.musician, args.specs, args.whole)
             print_coverage(song, band, [args.musician])
+        elif args.cmd == "pickup":
+            set_pickup(args.song, args.section, args.beats)
+            print(f"Sección {args.section}: empieza {args.beats:g} tiempo(s) antes.")
         elif args.cmd == "clear":
             clear_parts(args.song, load_band(args.band), args.musician)
             print("Matriz borrada: se usarán sus stems por defecto.")

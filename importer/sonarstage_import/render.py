@@ -124,6 +124,10 @@ def render_song(song_dir, out_dir, sample_rate=48000, live=(), semitones=0, band
             else:
                 bounds = bounds or parts.section_bounds(song, len(x), sample_rate)
                 m = parts.mask(len(x), bounds, secs, sample_rate)
+            if r.get("sequence_level_db") is not None:
+                # part of it stays in the sequence (e.g. choirs reinforcing the singers);
+                # the live file holds the remainder, so unmuting brings it back to full level
+                m = m * (1 - printing.db_to_gain(r["sequence_level_db"]))
             live_audio[r["id"]] = add(live_audio[r["id"]], x * m[:, None])
             rest -= m
         if rest.max() > 1e-6:

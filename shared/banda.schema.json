@@ -4,31 +4,77 @@
   "title": "Banda de SonarStage",
   "description": "Músicos de una banda y qué stems cubre cada uno por defecto. Vive en Biblioteca/_bandas/<id>.json.",
   "type": "object",
-  "required": ["schemaVersion", "id", "name", "musicians"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "musicians"
+  ],
   "additionalProperties": false,
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-    "name": { "type": "string" },
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string"
+    },
     "musicians": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name", "role", "default"],
+        "required": [
+          "id",
+          "name",
+          "role",
+          "default"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-          "name": { "type": "string", "description": "Nombre visible; también nombra su pista EN VIVO." },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre visible; también nombra su pista EN VIVO."
+          },
           "role": {
-            "enum": ["drums", "perc", "bass", "eg", "ag", "keys", "piano", "organ", "synth", "pad",
-                     "strings", "leadVocal", "choir", "fx", "extra"]
+            "enum": [
+              "drums",
+              "perc",
+              "bass",
+              "eg",
+              "ag",
+              "keys",
+              "piano",
+              "organ",
+              "synth",
+              "pad",
+              "strings",
+              "leadVocal",
+              "choir",
+              "fx",
+              "extra"
+            ]
           },
           "default": {
             "type": "array",
             "minItems": 1,
             "description": "Stems (por nombre, sin distinguir mayúsculas) que cubre en toda la canción cuando no hay matriz.",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
+          },
+          "sequenceLevelDb": {
+            "type": "number",
+            "maximum": 0,
+            "minimum": -60,
+            "description": "Opcional. Si existe, lo que cubre este músico sigue sonando en la secuencia a este nivel (p. ej. −6 para coros que refuerzan a los cantantes); su pista EN VIVO tiene el resto, así que al desmutearla vuelve al nivel completo. Sin este campo, lo que cubre sale por completo de la secuencia."
           }
         }
       }

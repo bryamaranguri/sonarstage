@@ -148,3 +148,25 @@ def test_command_line_set_and_show(song_dir, band, tmp_path, capsys):
     assert "Verso" in out and "EG 1" in out and "no toca" in out
     assert parts.main(["clear", str(song_dir), "--band", str(band_path), "--musician", "guitarra"]) == 0
     assert "parts" not in song_of(song_dir)
+
+
+def test_choirs_can_stay_in_the_sequence_at_a_lower_level(song_dir, band, tmp_path):
+    band["musicians"] = [{"id": "coros", "name": "Coros", "role": "choir", "default": ["Pad"], "sequenceLevelDb": -6.0}]
+    render_song(song_dir, tmp_path / "show", sample_rate=SR, band=band)
+    live, _ = sf.read(tmp_path / "show" / "Coros.wav", dtype="float32")
+    seq, _ = sf.read(tmp_path / "show" / "Secuencia.wav", dtype="float32")
+    pad, _ = sf.read(song_dir / "originales" / "Pad.wav", dtype="float32")
+    others = sum(sf.read(song_dir / "originales" / f"{n}.wav", dtype="float32")[0] for n in ("EG 1", "EG 2", "Bass"))
+    assert np.allclose(seq - others, pad * 10 ** (-6 / 20), atol=1e-4)   # pad still in the sequence at -6 dB
+    assert np.allclose(live + seq, others + pad, atol=1e-4)              # unmuted: back to full level
+
+
+def test_pickup_moves_the_split_but_not_the_section(song_dir, band, tmp_path):
+    parts.set_parts(song_dir, band, "guitarra", ["3=EG 2"])
+    parts.set_pickup(song_dir, 3, 1)                     # chorus starts one beat (0.5 s) early
+    song = song_of(song_dir)
+    assert song["sections"][2]["startBar"] == 7          # locator stays on the downbeat
+    bounds = parts.section_bounds(song, 20 * SR, SR)
+    assert bounds[2][1] == int(11.5 * SR)                # bar 7 is at 12 s; split at 11.5 s
+    with pytest.raises(parts.PartsError):
+        parts.set_pickup(song_dir, 1, 1)                 # nothing comes before the first section

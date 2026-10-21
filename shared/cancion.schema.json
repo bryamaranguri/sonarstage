@@ -149,6 +149,12 @@
           "bars": {
             "type": "integer",
             "minimum": 1
+          },
+          "pickupBeats": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4,
+            "description": "Opcional. Anacrusa: la sección empieza este número de tiempos antes del tiempo 1 para el reparto entre EN VIVO y SECUENCIA (los locators siguen en el tiempo 1)."
           }
         }
       }
