@@ -14,7 +14,10 @@ def detect_clicks(x, sr, min_gap=0.15):
     mag = np.abs(x[:, 0]) if x.ndim == 2 else np.abs(x)
     hop = int(sr * 0.001)
     env = np.maximum.reduceat(mag, np.arange(0, len(mag), hop))
-    peaks, _ = find_peaks(env, height=max(env.max() * 0.1, 1e-4), distance=int(min_gap / 0.001))
+    # Leading zero: find_peaks ignores the edges, and many clicks start at sample 0
+    padded = np.concatenate([[0.0], env])
+    peaks, _ = find_peaks(padded, height=max(env.max() * 0.1, 1e-4), distance=int(min_gap / 0.001))
+    peaks = peaks - 1
     mono = x[:, 0] if x.ndim == 2 else x
     times, levels, bright = [], [], []
     for p in peaks:

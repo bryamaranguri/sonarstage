@@ -33,6 +33,11 @@ def test_eighth_note_click_reads_true_tempo():
     assert abs(tempo.tempo_summary(beats)["bpm"] - 72) < 0.1
 
 
+def test_click_at_sample_zero_is_detected():
+    times, _, bright = tempo.detect_clicks(click_track(bpm=120), SR)
+    assert times[0] < 0.002
+
+
 def test_quarter_note_click_is_kept():
     x = click_track(bpm=128, subdivisions=False)
     times, _, bright = tempo.detect_clicks(x, SR)

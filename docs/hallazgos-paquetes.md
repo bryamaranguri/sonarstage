@@ -71,6 +71,36 @@ Correlación de ataques contra el click:
 - Pérdida de ~3 dB en stems abiertos y no correlacionados es normal.
 - Problema real: correlación negativa. *Oohs* (Holy Forever) pierde 5.2 dB en mono.
 
+## Impresión (primera prueba)
+
+`python -m sonarstage_import.prepare` sobre los dos RAR, medido después sobre los FLAC
+escritos (no sobre lo que el programa esperaba):
+
+| Canción | Antes | Después | Ganancia | Limitada por |
+|---|---|---|---|---|
+| Alegras mis días | −11.7 LUFS, pico +4.4 | **−17.1 LUFS, pico −1.0** | −5.4 dB | pico de la mezcla |
+| Holy Forever | −16.8 LUFS, pico −0.2 | **−17.7 LUFS, pico −1.0** | −0.8 dB | pico de la mezcla |
+
+- Diferencia entre canciones: de 5.1 dB a **0.6 dB**.
+- En las dos manda el techo de pico (−1 dBFS), no el objetivo de −16 LUFS: con mezclas
+  de este tipo, el nivel común real ronda −17/−18 LUFS. Conviene bajar el objetivo a
+  −18 para que el volumen lo decida siempre el LUFS y no el pico.
+- Guía: −18.0 LUFS en ambas. Click: −23.3 y −23.1 LUFS (limitado por su propio pico;
+  objetivo ajustado a −23).
+- Tiempo: 55–78 s por canción; memoria máxima ~1 GB.
+
+### Espacio: el FLAC impreso pesa más que el original
+
+| Canción | Originales (MP3/AAC 320) | Preparada (FLAC 24 bits) |
+|---|---|---|
+| Alegras mis días | 182 MB | 456 MB |
+| Holy Forever | 233 MB | 699 MB |
+
+Un MP3 decodificado ya no se comprime como el original: ~3 veces más. Con 100
+canciones serían ~100 GB. Alternativa a decidir: guardar en la biblioteca solo los
+originales y la "receta" (`cancion.json` con ganancias), e imprimir los WAV al
+preparar cada show. Solo el cambio de tono, que es más lento, se guardaría impreso.
+
 ## Rendimiento
 
 Paquete de 18 stems de 5:23 min: 24 s y 1 GB de memoria máxima, procesando un stem
