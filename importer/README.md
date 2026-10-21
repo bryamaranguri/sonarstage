@@ -36,6 +36,8 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `transpose` | Versión en otro tono (solo armónicos), compensada en tiempo y volumen |
 | `parts` | Banda, cuadrícula de actividad y matriz de partes por sección |
 | `render` | WAV del show: CUES, una pista EN VIVO por músico presente, SECUENCIA sumada |
+| `ableton` | Escribe el `.als` clonando pistas y clips de la plantilla del usuario |
+| `show` | Preparar show: renderiza cada canción y genera el proyecto de Ableton |
 
 Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
 

@@ -123,6 +123,22 @@ Biblioteca/
 
 Después del show, un botón borra la copia del disco interno.
 
+### Generación del `.als` (`ableton.py`)
+
+- **Clonado de la plantilla del usuario**: pistas, clips y envolventes se copian de un set
+  guardado por Live y solo se cambian nombres, colores, ruteo, posiciones y archivos. El
+  formato no está documentado; clonar evita escribir estructuras a ciegas. El archivo
+  declara la versión de la plantilla (hoy 12.0.5), así que abre en esa versión o posterior.
+- Se renumeran las IDs de objetos automatizables (`*Target`, `Pointee`) y se ajusta
+  `NextPointeeId`.
+- Canciones seguidas en el arrangement, separadas por una pausa (30 s por defecto) y
+  empezando en compás. **Automatización de tempo** en Main: un escalón por canción.
+- **Clips sin warp**: el audio suena tal cual, sin estirarse en el escenario.
+- **Locators**: uno por canción ("1. Título") y uno por sección.
+- Una pista por rol de cue (Click, Guía), aunque cada fuente los nombre distinto.
+- Perfil de 2 salidas: Main (secuencia + en vivo) a la salida 1 mono y CUES a la 2 mono.
+  Requiere activar las salidas 1 y 2 como mono en *Preferencias → Audio → Output Config*.
+
 ### Perfiles de salida
 
 | Perfil | Salida 1 | Salida 2 | Resto |
