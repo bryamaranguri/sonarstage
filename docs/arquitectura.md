@@ -30,11 +30,24 @@
 
 | Componente | Tecnología prevista | Carpeta |
 |---|---|---|
-| App de escritorio (UI, biblioteca, shows, control en vivo, voz) | Tauri o Electron | `app/` |
-| Motor de análisis e impresión de audio | Python empaquetado dentro de la app | `importer/` |
+| App de escritorio (UI, biblioteca, shows) | **Tauri + React** | `app/` |
+| Motor: audio, control de Ableton (OSC), voz | **Python** empaquetado como *sidecar* de Tauri | `importer/` |
 | Puente con Ableton | MIDI Remote Script en Python (funciona sin Max for Live) | `bridge/` |
 | Formatos compartidos | JSON Schema | `shared/` |
 | Visor de cifrados | Modo show dentro de SonarMaster (repo aparte) | — |
+
+### Decisión: Tauri + React + motor en Python (21/10/2026)
+
+- **Python para el motor.** El trabajo pesado corre en librerías nativas (ffmpeg, Rubber
+  Band, NumPy/SciPy, Whisper); reescribir en Rust o Go no lo aceleraría. Python tiene el
+  mejor ecosistema de audio y el motor ya existe con pruebas.
+- **Tauri en lugar de Electron.** La app corre junto a Ableton en una MacBook Air M1:
+  Tauri usa el WebKit de macOS y consume mucha menos memoria que un Chromium embebido.
+- **Reparto:** React dibuja; Rust (capa delgada) abre la ventana, lanza el motor
+  empaquetado (PyInstaller) como *sidecar* y pasa mensajes; Python hace audio, OSC con
+  Ableton, micrófono y voz.
+- Costo asumido: el motor empaquetado pesa ~150–250 MB, más el modelo de Whisper que se
+  descarga la primera vez. Diferencias menores de CSS entre WebKit y Chrome.
 
 ## 1. Importador
 

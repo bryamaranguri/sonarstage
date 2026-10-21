@@ -1,6 +1,7 @@
 # App de escritorio
 
-Interfaz para Mac (Tauri o Electron, por decidir). Reúne:
+Interfaz para Mac con **Tauri + React** (decisión en `docs/arquitectura.md`). El motor de
+audio es el paquete Python de `importer/`, lanzado como *sidecar*. Reúne:
 
 - Importación y revisión de canciones.
 - Biblioteca, configuración semanal y matriz de partes.
