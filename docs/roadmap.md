@@ -16,7 +16,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Cambio de tono offline en stems armónicos (compensación de desfase y de volumen)
 - [ ] Matriz de partes (`<rol> en vivo` / `<rol> secuencia`)
 - [ ] Biblioteca: `cancion.json` + preparadas en FLAC
-- [ ] Generador de show `.als` para Live 11 y 12 con perfiles de salida
+- [ ] Generador de show `.als` con formato de Live 12.0 (abre en 12.0 a 12.4) y perfiles de salida
 
 ## Fase 2 — Control en vivo
 - [ ] Remote Script + comunicación OSC con la app

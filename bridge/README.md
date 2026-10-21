@@ -1,6 +1,6 @@
 # SonarStage Link
 
-MIDI Remote Script para Ableton Live 11 y 12. Conecta Live con la app por OSC.
+MIDI Remote Script para Ableton Live 12. Conecta Live con la app por OSC.
 
 - No requiere Max for Live (aunque todos los usuarios actuales tienen Suite).
 - El asistente de la app lo copia a la carpeta de Remote Scripts del usuario.

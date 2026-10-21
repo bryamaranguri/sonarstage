@@ -29,10 +29,14 @@ Documentación completa en `docs/`. Lee primero `docs/arquitectura.md`.
 | Usuario | Mac | Ableton | Interfaz |
 |---|---|---|---|
 | Bryam | M4 Max | Live 12.4.3 Suite | 2 salidas (pronto 8) |
-| Amigo | MacBook Air M1 | Live 11 Suite | 6 salidas |
+| Amigo | MacBook Air M1 | Live 12.0 | 6 salidas |
 
-- Soportar **Live 11 y Live 12**. Un `.als` guardado en Live 12 no abre en Live 11:
-  el generador de shows debe producir el proyecto para la versión de cada usuario.
+- Soportar **Live 12** (todos los usuarios actuales). Ableton no abre un set guardado en
+  una versión posterior, ni siquiera dentro de Live 12 (un set de 12.4 no abre en 12.0).
+  Por eso el generador escribe el `.als` con el formato de la versión más antigua que se
+  soporte (12.0): las versiones nuevas sí abren sets de versiones anteriores.
+- Nunca compartir un show guardado desde Live 12.4 con alguien en 12.0: cada usuario
+  genera su propio show desde la biblioteca.
 - Todos tienen **SSD externo**: la biblioteca vive ahí; el show se copia al disco interno.
 
 ## Vocabulario

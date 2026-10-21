@@ -103,7 +103,7 @@ Biblioteca/
    CUES y cada stem de EN VIVO como archivos sueltos; todo lo de SECUENCIA **sumado en
    un solo archivo estéreo** (nunca se mutea por separado; ahorra ~60 % de espacio y
    pistas). Un `show.json` por canción describe archivos y grupos para el generador.
-5. Generar el `.als` para la versión de Live del usuario, siguiendo `docs/plantilla.md`:
+5. Generar el `.als` con el formato de Live 12.0 (lo abren todas las versiones 12.x), siguiendo `docs/plantilla.md`:
    pistas fijas por rol, locators por canción y sección, espacio entre canciones,
    ruteo según el perfil de salidas.
 6. Abrir el proyecto en Ableton.

@@ -11,7 +11,7 @@ Parte de la familia **Sonar**: SonarMaster es para practicar; SonarStage, para e
   secciones y tono a partir del click y la guía.
 - **Prepara** cada canción una sola vez: mezcla, normaliza el volumen entre
   canciones, cambia de tono y separa lo que toca la banda en vivo.
-- **Genera el show** de la semana en segundos, listo para Ableton Live 11 o 12.
+- **Genera el show** de la semana en segundos, listo para Ableton Live 12.
 - **Controla el show** por voz: repetir el coro, saltar secciones, extender partes.
 - **Sincroniza los cifrados** en el modo show de SonarMaster.
 
