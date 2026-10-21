@@ -15,7 +15,10 @@ import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
 
-TARGET_LUFS = -16.0
+# Common loudness of the full mix. -18 rather than -16: with typical packs the -1 dBFS
+# peak ceiling already pulls songs to -17/-18, and then the peak, not the loudness,
+# would decide the level (measured on two real packs).
+TARGET_LUFS = -18.0
 PEAK_CEILING_DBFS = -1.0       # headroom for the summed mix at the interface output
 STEM_CEILING_DBFS = -0.3       # no single printed stem may clip a 24-bit file
 # A click is all peak and little energy: with a -0.3 dBFS ceiling it lands around

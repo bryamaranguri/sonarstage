@@ -81,15 +81,15 @@ Entrada: ZIP, RAR o carpeta con WAV, MP3, M4A, FLAC o AIFF.
 Biblioteca/
 └── <Nombre de la canción>/
     ├── originales/        ← tal como llegaron (MP3 se queda en MP3)
-    ├── preparada/
-    │   ├── <tono>/        ← stems impresos en FLAC, uno por versión de tono
-    │   └── ...
-    ├── cancion.json       ← ver shared/cancion.schema.json
-    └── (vínculo al cifrado en SonarMaster)
+    ├── cancion.json       ← la receta: roles, ganancias, tempo, secciones (shared/cancion.schema.json)
+    ├── analisis.json      ← reporte completo del importador
+    └── preparada/<tono>/  ← solo versiones transpuestas (lentas de calcular), en FLAC
 ```
 
-- Preparadas en **FLAC** (sin pérdida, ~50 % del tamaño, trae verificación interna).
-- Una canción de 5 min con 12 stems ≈ 1 GB en WAV; la biblioteca usa bastante menos.
+- **Biblioteca = originales + receta.** Las ganancias se aplican al preparar el show
+  (`render.py`), que toma segundos por canción. Imprimir FLAC en la biblioteca ocupaba
+  ~3 veces lo que el MP3 original y no aportaba nada.
+- Solo las versiones con cambio de tono se guardan impresas.
 - Respaldo recomendado: segunda copia en otro disco o en la nube.
 
 ## 3. Shows

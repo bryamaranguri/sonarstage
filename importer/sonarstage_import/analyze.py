@@ -1,6 +1,6 @@
 """Analyse an extracted stem pack and print a report.
 
-    python -m sonarstage_import.analyze <pack folder> [--json out.json] [--target-lufs -16]
+    python -m sonarstage_import.analyze <pack folder> [--json out.json] [--target-lufs -18]
 
 Prototype for phase 1. Reads only; never modifies the pack.
 """
@@ -16,7 +16,7 @@ AUDIO_EXT = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".aif", ".aiff", ".ogg"}
 SR = 44100
 
 
-def analyze(pack, target_lufs=-16.0):
+def analyze(pack, target_lufs=-18.0):
     files = sorted(p for p in Path(pack).iterdir() if p.suffix.lower() in AUDIO_EXT)
     stems = []
     for f in files:
@@ -114,7 +114,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("pack")
     ap.add_argument("--json")
-    ap.add_argument("--target-lufs", type=float, default=-16.0)
+    ap.add_argument("--target-lufs", type=float, default=-18.0)
     args = ap.parse_args(argv)
     report = analyze(args.pack, args.target_lufs)
     print_summary(report)

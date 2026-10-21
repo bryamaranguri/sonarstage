@@ -1,10 +1,13 @@
-"""Import a stem pack into the library: extract, analyse, print the prepared stems.
+"""Import a stem pack into the library: extract, analyse and store the recipe.
 
     python -m sonarstage_import.prepare <pack.zip|pack.rar|folder> --library <dir>
-        [--title "Nombre"] [--target-lufs -16] [--offsets offsets.json]
+        [--title "Nombre"] [--target-lufs -18] [--offsets offsets.json]
 
-Writes <library>/<title>/ with originales/, preparada/0/ (24-bit FLAC), cancion.json
-and analisis.json. Never touches the source pack and refuses to overwrite a song.
+Writes <library>/<title>/ with originales/ (as they came), cancion.json (the recipe:
+roles, gains, tempo, sections) and analisis.json. No audio is printed here: gains are
+applied when a show is prepared (see render.py), which takes seconds per song. Only
+transposed versions, which are slow to compute, will be stored under preparada/<tono>/.
+Never touches the source pack and refuses to overwrite a song.
 """
 import argparse
 import json
@@ -33,8 +36,8 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
     if "tempo" not in report:
         raise PackError("Sin click no se puede preparar automáticamente (falta tempo y compases).")
 
-    # Library keeps the source sample rate; conversion to each user's rate happens when
-    # the show is prepared.
+    # Gains are measured at the source sample rate; conversion to each user's rate
+    # happens when the show is rendered.
     sr = Counter(s["sample_rate"] for s in report["stems"]).most_common(1)[0][0]
     stems = report["stems"]
     music = [s for s in stems if s["role"] not in printing.CUE_ROLES]
@@ -44,8 +47,6 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
     song_gain, limited_by = printing.plan_song_gain(
         measured["lufs"], measured["peak_db"], measured["stem_peaks_db"], target_lufs)
 
-    out_dir = song_dir / "preparada" / "0"
-    out_dir.mkdir(parents=True)
     song_stems, used_names = [], set()
     for s in stems:
         if s["role"] in printing.CUE_ROLES:
@@ -56,7 +57,6 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
         while name.lower() in used_names:
             name += " b"
         used_names.add(name.lower())
-        printing.write_stem(out_dir / f"{name}.flac", decode(originals / s["file"], sr), sr, gain)
         song_stems.append({
             "file": s["file"], "role": s["role"], "label": name, "harmonic": s["harmonic"],
             "gainDb": gain, "offsetMs": 0, "monoSafe": s["levels"]["mono_safe"],
@@ -72,7 +72,7 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
 
     song = library.build_song_json(
         song_id=library.slugify(title), title=title, source=source.name, report=report,
-        stems=song_stems, sections=sections, target_lufs=target_lufs)
+        stems=song_stems, sections=sections, target_lufs=target_lufs, prepared_semitones=())
     error = library.validate(song)
     if error:
         raise PackError(f"cancion.json no cumple el esquema: {error}")
@@ -83,7 +83,7 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
 
     if not quiet:
         expected_lufs = measured["lufs"] + song_gain
-        print(f"\nPreparada en {song_dir}")
+        print(f"\nEn la biblioteca: {song_dir}")
         print(f"Ganancia de la canción: {song_gain:+} dB (limitada por {limited_by}) "
               f"→ mezcla esperada {expected_lufs:.1f} LUFS, pico {measured['peak_db'] + song_gain:.1f} dBFS")
         print(f"Secciones provisionales: {len(sections)} · {bars} compases")

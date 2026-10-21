@@ -101,6 +101,25 @@ canciones serían ~100 GB. Alternativa a decidir: guardar en la biblioteca solo 
 originales y la "receta" (`cancion.json` con ganancias), e imprimir los WAV al
 preparar cada show. Solo el cambio de tono, que es más lento, se guardaría impreso.
 
+## Biblioteca con receta y render del show (segunda prueba)
+
+Decisiones aplicadas: objetivo −18 LUFS y biblioteca con originales + receta.
+
+| Canción | Ganancia | Mezcla en el show | Pico | Biblioteca | Show (WAV 48 kHz) |
+|---|---|---|---|---|---|
+| Holy Forever | −1.2 dB | **−18.0 LUFS** | −1.4 dBFS | 233 MB | 1676 MB |
+| Alegras mis días | −6.3 dB | **−18.0 LUFS** | −2.1 dBFS | 182 MB | 1304 MB |
+
+- Ahora manda el volumen objetivo en las dos canciones: diferencia **0.0 dB**.
+- Importar sin imprimir: 25–36 s por canción. Renderizar con verificación: 58–76 s
+  en el entorno de pruebas (escribe sobre una carpeta compartida; en la Mac será menor).
+- **El show en WAV es pesado**: ~1.5 GB por canción, ~18 GB para una boda de 12
+  canciones. Puede ser un problema en una MacBook Air de 256 GB. Idea a decidir:
+  sumar en un solo archivo estéreo todo lo que va al grupo SECUENCIA (nunca se mutea
+  por separado) y dejar sueltos solo los stems de EN VIVO y los CUES. Reduciría el
+  tamaño y la cantidad de pistas en Ableton, a cambio de no poder ajustar esos stems
+  uno por uno durante el show.
+
 ## Rendimiento
 
 Paquete de 18 stems de 5:23 min: 24 s y 1 GB de memoria máxima, procesando un stem

@@ -10,6 +10,7 @@ import soundfile as sf
 from sonarstage_import import library, printing
 from sonarstage_import.extract import PackError, extract_pack
 from sonarstage_import.prepare import prepare
+from sonarstage_import.render import RenderError, render_song
 
 from test_analysis import SR, click_track
 
@@ -76,18 +77,32 @@ def test_prepare_end_to_end(pack, tmp_path):
     assert song["sections"][0]["startBar"] == 1
     assert [s["startBar"] for s in song["sections"]] == [1, 3, 7]
 
-    printed = {p.stem: sf.read(p) for p in (song_dir / "preparada" / "0").glob("*.flac")}
-    assert set(printed) == {"Click", "Drums", "Guide", "Pad"}
-    # music stems got one common gain; their sum respects the target or the peak ceiling
-    mix = printed["Drums"][0] + printed["Pad"][0]
-    lufs = pyln.Meter(SR).integrated_loudness(mix)
+    # the library keeps originals + recipe only; nothing printed at import
+    assert (song_dir / "originales" / "Click.wav").exists()
+    assert not (song_dir / "preparada").exists()
+    gains = {s["label"]: s["gainDb"] for s in song["stems"]}
+    assert gains["Drums"] == gains["Pad"]           # one common gain for the music
+
+
+def test_render_applies_recipe_at_user_sample_rate(pack, tmp_path):
+    song_dir, song, _ = prepare(pack, tmp_path / "Biblioteca", quiet=True)
+    result = render_song(song_dir, tmp_path / "show", sample_rate=48000)
+    files = {f["label"]: tmp_path / "show" / f["file"] for f in result["files"]}
+    assert set(files) == {"Click", "Drums", "Guide", "Pad"}
+    for p in files.values():
+        info = sf.info(str(p))
+        assert (info.samplerate, info.subtype, info.format) == (48000, "PCM_24", "WAV")
+    mix = sf.read(files["Drums"])[0] + sf.read(files["Pad"])[0]
+    lufs = pyln.Meter(48000).integrated_loudness(mix)
     peak = 20 * np.log10(np.abs(mix).max())
     assert peak <= printing.PEAK_CEILING_DBFS + 0.1
     assert lufs == pytest.approx(printing.TARGET_LUFS, abs=0.3) or peak >= printing.PEAK_CEILING_DBFS - 0.2
-    gains = {s["label"]: s["gainDb"] for s in song["stems"]}
-    assert gains["Drums"] == gains["Pad"]
-    # originals untouched and kept as they came
-    assert (song_dir / "originales" / "Click.wav").exists()
+
+
+def test_render_refuses_missing_transposed_version(pack, tmp_path):
+    song_dir, _, _ = prepare(pack, tmp_path / "Biblioteca", quiet=True)
+    with pytest.raises(RenderError):
+        render_song(song_dir, tmp_path / "show", semitones=-2)
 
 
 def test_refuses_to_overwrite_a_song(pack, tmp_path):
