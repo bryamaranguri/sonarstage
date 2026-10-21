@@ -1,0 +1,41 @@
+# Audio y proyectos de Ableton: nunca al repositorio (pesan y tienen derechos de autor)
+*.wav
+*.mp3
+*.flac
+*.aif
+*.aiff
+*.m4a
+*.zip
+*.rar
+*.als
+*.asd
+Backup/
+Ableton Project Info/
+
+# Excepción: material de prueba propio y liviano, si alguna vez hace falta
+!tests/fixtures/**/*.wav
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node / app
+node_modules/
+dist/
+build/
+target/
+
+# Modelos descargados
+models/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store

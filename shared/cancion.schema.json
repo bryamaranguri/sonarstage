@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bryamaranguri/sonarstage/shared/cancion.schema.json",
+  "title": "Canción de la biblioteca SonarStage",
+  "description": "Metadatos de una canción preparada. Vive en Biblioteca/<canción>/cancion.json.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "tempo", "sections", "stems"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "description": "Identificador estable (slug o UUID)." },
+    "title": { "type": "string" },
+    "artist": { "type": "string" },
+    "source": { "type": "string", "description": "De dónde se descargó el paquete." },
+    "importedAt": { "type": "string", "format": "date-time" },
+
+    "tempo": {
+      "type": "object",
+      "required": ["bpm", "timeSignature"],
+      "additionalProperties": false,
+      "properties": {
+        "bpm": { "type": "number", "exclusiveMinimum": 0 },
+        "timeSignature": {
+          "type": "string",
+          "pattern": "^[0-9]+/[0-9]+$",
+          "description": "Compás, p. ej. 4/4 o 6/8."
+        },
+        "map": {
+          "type": "array",
+          "description": "Cambios de tempo (vacío si es constante).",
+          "items": {
+            "type": "object",
+            "required": ["bar", "bpm"],
+            "additionalProperties": false,
+            "properties": {
+              "bar": { "type": "integer", "minimum": 1 },
+              "bpm": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          }
+        },
+        "firstDownbeatSec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Segundo del primer tiempo del compás 1, según el click."
+        }
+      }
+    },
+
+    "key": {
+      "type": "object",
+      "required": ["original"],
+      "additionalProperties": false,
+      "properties": {
+        "original": { "type": "string", "description": "Tonalidad original, p. ej. G o Em." },
+        "prepared": {
+          "type": "array",
+          "description": "Versiones de tono ya impresas (semitonos respecto al original).",
+          "items": { "type": "integer", "minimum": -6, "maximum": 6 }
+        }
+      }
+    },
+
+    "sections": {
+      "type": "array",
+      "description": "Secciones detectadas desde la guía y revisadas por el usuario.",
+      "items": {
+        "type": "object",
+        "required": ["name", "startBar", "bars"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "description": "Tal como se mostrará, p. ej. Coro, Verso 2." },
+          "kind": {
+            "enum": ["intro", "verse", "prechorus", "chorus", "bridge", "interlude", "tag", "outro", "other"]
+          },
+          "startBar": { "type": "integer", "minimum": 1 },
+          "bars": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+
+    "stems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "role"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string", "description": "Ruta relativa dentro de originales/." },
+          "role": {
+            "enum": [
+              "click", "guide", "drums", "perc", "bass",
+              "eg", "ag", "keys", "piano", "organ", "synth", "pad", "strings",
+              "leadVocal", "choir", "fx", "premix", "extra"
+            ]
+          },
+          "label": { "type": "string", "description": "Nombre visible, p. ej. EG 2." },
+          "harmonic": { "type": "boolean", "description": "Se transpone al cambiar de tono." },
+          "gainDb": { "type": "number", "description": "Ajuste de mezcla impreso." },
+          "offsetMs": { "type": "number", "description": "Corrección de alineación aplicada." },
+          "monoSafe": { "type": "boolean", "description": "Falso si pierde contenido al sumar a mono." },
+          "sourceFormat": { "type": "string", "description": "wav, mp3 (con bitrate), flac…" }
+        }
+      }
+    },
+
+    "mix": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targetLufs": { "type": "number" },
+        "songOffsetDb": { "type": "number", "description": "Ajuste intencional, p. ej. balada −2." }
+      }
+    },
+
+    "parts": {
+      "type": "object",
+      "description": "Matriz de partes por banda: banda → rol → sección → labels de stems que cubre el músico.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "sonarmaster": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "chartId": { "type": "string" },
+        "songId": { "type": "string" }
+      }
+    },
+
+    "notes": { "type": "string" }
+  }
+}
