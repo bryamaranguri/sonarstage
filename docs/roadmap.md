@@ -3,11 +3,14 @@
 ## Fase 1 — Importador
 Donde hoy se pierden ~30 minutos por canción.
 
-- [ ] Descompresión ZIP/RAR y decodificación WAV/MP3 (gapless)
-- [ ] Clasificación de stems por nombre + confirmación
-- [ ] Alineación de stems contra el click
-- [ ] Tempo y compases desde el click
-- [ ] Secciones desde la guía (Whisper, es/en)
+Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.md`.
+
+- [ ] Descompresión ZIP/RAR y decodificación WAV/MP3/AAC (gapless) — *decodificación lista; falta integrar la descompresión*
+- [ ] Clasificación de stems por nombre + confirmación — *clasificación lista; falta la confirmación*
+- [x] Alineación de stems contra el click (prototipo)
+- [x] Tempo, compás y primer tiempo desde click + bombo (prototipo)
+- [x] Medición de volumen, saturación y compatibilidad mono (prototipo)
+- [ ] Secciones desde la guía (Whisper, es/en) — *posiciones listas; falta transcribir en la Mac*
 - [ ] Estimación de tonalidad
 - [ ] Mezcla por plantilla de roles + normalización LUFS de la canción
 - [ ] Cambio de tono offline en stems armónicos

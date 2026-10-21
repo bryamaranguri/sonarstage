@@ -11,5 +11,28 @@ Responsabilidades (detalle en `docs/arquitectura.md`, sección 1):
 - Mezcla, normalización, cambio de tono y matriz de partes.
 - Escribir la canción en la biblioteca según `shared/cancion.schema.json`.
 
-Librerías previstas: ffmpeg (decodificación), librosa / numpy (análisis),
-faster-whisper (guía), pyloudnorm (LUFS), Rubber Band (tono), soundfile (FLAC/WAV).
+## Prototipo de análisis
+
+Solo lee el paquete; no modifica nada.
+
+```bash
+cd importer
+pip install -r requirements.txt        # además: ffmpeg/ffprobe en el PATH
+python -m sonarstage_import.analyze "<carpeta del paquete descomprimido>" --json reporte.json
+python -m pytest tests                 # pruebas que no necesitan audio
+```
+
+| Módulo | Qué hace |
+|---|---|
+| `audio_io` | Decodifica con ffmpeg (respeta gapless MP3 y priming AAC) |
+| `roles` | Rol de cada stem por su nombre (español e inglés) |
+| `tempo` | Click → tiempos, BPM, cambios; bombo → compás y primer tiempo |
+| `align` | Desfase de cada stem respecto al click |
+| `levels` | LUFS, pico, actividad y compatibilidad mono; mezcla completa |
+| `guide` | Dónde habla la guía, en compás y tiempo |
+| `analyze` | Reporte completo de un paquete |
+
+Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
+
+Previstos: faster-whisper (transcripción de la guía), Rubber Band (tono),
+soundfile (FLAC/WAV).
