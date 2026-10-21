@@ -19,9 +19,9 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Generador de show `.als` (clonado de la plantilla; perfiles de 2 y 4 salidas) — *pendiente: validar abriéndolo en Live*
 
 ## Fase 2 — Control en vivo
-- [ ] Remote Script + comunicación OSC con la app
+- [x] Remote Script SonarStage Link (JSON por UDP local) — *pendiente: probar en Live*
 - [ ] Setlist al vuelo, avance y parada automáticos
-- [ ] Loops y saltos cuantizados, extender sección
+- [x] Loops y saltos cuantizados, extender sección (en el núcleo del puente)
 - [ ] Guía inteligente
 - [ ] Mute/desmute instantáneo de pistas en vivo
 - [ ] Control por voz (offline, palabra de activación, confirmación en el click)
