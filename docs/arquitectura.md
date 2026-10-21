@@ -139,6 +139,23 @@ Después del show, un botón borra la copia del disco interno.
 - Perfil de 2 salidas: Main (secuencia + en vivo) a la salida 1 mono y CUES a la 2 mono.
   Requiere activar las salidas 1 y 2 como mono en *Preferencias → Audio → Output Config*.
 
+### MIDI (`midi.py`, grupo CONTROL)
+
+- Dispositivos MIDI en la banda (`midiDevices`); cambios por sección en `cancion.json`.
+- **HX Stomp** (por USB, sin cable de 5 pines): preset = Program Change, snapshot = CC 69
+  (0–2 = snapshots 1–3), bloques sueltos con el CC asignado en *Bypass Assign*
+  (0–63 apaga, 64–127 prende). El tempo le llega por **MIDI Clock** de Live, que sigue la
+  automatización de tempo: no necesita pista de tempo.
+- **Consola UAD (Apollo)**: según UAD, el tempo solo se controla por tap tempo vía MIDI
+  (nota o CC). El show golpea ese CC en cada tiempo de la cuenta inicial (2 compases),
+  así la consola tiene el tempo antes de que entre la música. Pendiente de probar con
+  una Apollo real.
+- Una pista MIDI por dispositivo, clonada de la pista MIDI de la plantilla; un clip por
+  cambio, con `ProgramChange` y envolventes de CC (`ControllerTargets.N` = CC N−2).
+- La plantilla que tiene la pista MIDI es `referencia-midi.als` (Live 12.4.3): el show
+  declara esa versión.
+- Pendiente: ruteo de salida de las pistas MIDI (hoy quedan en *None*).
+
 ### Perfiles de salida
 
 | Perfil | Salida 1 | Salida 2 | Resto |

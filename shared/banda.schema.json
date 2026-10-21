@@ -78,6 +78,49 @@
           }
         }
       }
+    },
+    "midiDevices": {
+      "type": "array",
+      "description": "Equipos que reciben MIDI desde el show (pedaleras, consola de la interfaz).",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre visible; también nombra su pista MIDI."
+          },
+          "kind": {
+            "enum": [
+              "hx-stomp",
+              "tap-tempo",
+              "generic"
+            ],
+            "description": "hx-stomp: preset por Program Change y snapshot por CC 69. tap-tempo: pulsos de CC al tempo de la canción durante la cuenta (consola UAD). generic: Program Change y CC libres."
+          },
+          "channel": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16,
+            "default": 1
+          },
+          "tapCc": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127,
+            "description": "Solo tap-tempo: CC que el equipo tiene asignado al tap tempo."
+          }
+        }
+      }
     }
   }
 }

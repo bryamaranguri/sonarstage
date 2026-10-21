@@ -37,6 +37,7 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `parts` | Banda, cuadrícula de actividad y matriz de partes por sección |
 | `render` | WAV del show: CUES, una pista EN VIVO por músico presente, SECUENCIA sumada |
 | `ableton` | Escribe el `.als` clonando pistas y clips de la plantilla del usuario |
+| `midi` | Cambios MIDI por sección (presets, snapshots, CC) y pistas de tap tempo |
 | `show` | Preparar show: renderiza cada canción y genera el proyecto de Ableton |
 
 Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.

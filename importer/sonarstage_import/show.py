@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import ableton, parts
+from . import ableton, midi, parts
 from .render import RenderError, render_song
 
 CUE_LANES = {"click": "Click", "guide": "Guía"}
@@ -43,9 +43,11 @@ def prepare_show(library, out_dir, template, song_specs, band=None, present=None
         files = [{"group": f["group"], "label": CUE_LANES.get(f["role"], f["label"]),
                   "path": str(audio_dir / f["file"]), "frames": f["frames"], "sr": sample_rate}
                  for f in manifest["files"]]
+        song = json.loads((song_dir / "cancion.json").read_text())
+        duration = max(f["frames"] for f in files) / sample_rate
+        midi_lanes = midi.lanes(song, band, duration * manifest["tempo"]["bpm"] / 60) if band else []
         songs.append({"title": title, "tempo": manifest["tempo"], "sections": manifest["sections"],
-                      "duration_s": max(f["frames"] for f in files) / sample_rate, "files": files,
-                      "semitones": semis})
+                      "duration_s": duration, "files": files, "semitones": semis, "midi": midi_lanes})
         report.append({"title": title, "semitones": semis, "warnings": manifest["warnings"],
                        "files": [(f["group"], f["label"]) for f in manifest["files"]]})
     als = out_dir / f"{out_dir.name}.als"
@@ -76,7 +78,7 @@ def main(argv=None):
         path_map = tuple(args.real_path.split("=", 1)) if args.real_path else None
         result, report = prepare_show(args.library, args.out, args.template, args.songs, band, present,
                                       args.profile, args.gap, args.sample_rate, path_map)
-    except (ableton.AlsError, RenderError, parts.PartsError) as e:
+    except (ableton.AlsError, RenderError, parts.PartsError, midi.MidiError) as e:
         print(f"No se pudo preparar el show: {e}", file=sys.stderr)
         return 1
     print(f"Show listo: {result['als']}  (formato de {result['version']})")

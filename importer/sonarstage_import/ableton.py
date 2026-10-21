@@ -10,6 +10,9 @@ Layout of the set (docs/plantilla.md):
   CUES       (gray)    → click and guide, to the cue output
   EN VIVO    (purple)  → one track per musician, muted, to Main
   SECUENCIA  (yellow)  → the summed sequence, to Main
+  CONTROL              → one MIDI track per device (pedalboard presets/snapshots,
+                         tap tempo for the Apollo console); only when the template has
+                         a MIDI track with a clip to clone
 Songs go one after another in the arrangement with a gap; the tempo follows each song
 through tempo automation; clips are unwarped (audio plays untouched, nothing is
 time-stretched on stage). Locators mark each song and its sections.
@@ -21,8 +24,9 @@ import os
 import xml.etree.ElementTree as ET
 
 COLORS = {  # Live color indexes taken from the user's template
-    "CUES": (41, 13), "EN VIVO": (64, 24), "SECUENCIA": (1, 3),
+    "CUES": (41, 13), "EN VIVO": (64, 24), "SECUENCIA": (1, 3), "CONTROL": (14, 14),
 }
+CC_TARGET_OFFSET = 2   # a MIDI track's ControllerTargets.N controls CC N-2 (CC 69 = .71 in Live 12)
 
 # Output profiles: (Target, UpperDisplayString, LowerDisplayString)
 PROFILES = {
@@ -49,7 +53,8 @@ class _Ids:
 
     def renumber(self, elem):
         for e in elem.iter():
-            if "Id" in e.attrib and (e.tag == "Pointee" or e.tag.endswith("Target")):
+            if "Id" in e.attrib and (e.tag == "Pointee" or e.tag.endswith("Target")
+                                     or e.tag.startswith("ControllerTargets.")):
                 e.set("Id", str(self.next))
                 self.next += 1
 
@@ -78,6 +83,10 @@ class Template:
         if self.group_proto is None or self.audio_proto is None:
             raise AlsError("La plantilla necesita al menos un grupo y una pista de audio con un clip.")
         self.clip_proto = self.audio_proto.find(".//AudioClip")
+        self.midi_proto = next((t for t in tracks if t.tag == "MidiTrack" and t.find(".//MidiClip") is not None), None)
+        self.midi_clip_proto = self.midi_proto.find(".//MidiClip") if self.midi_proto is not None else None
+        env = self.midi_clip_proto.find("Envelopes/Envelopes/ClipEnvelope") if self.midi_proto is not None else None
+        self.envelope_proto = env
         self.version = self.root.get("Creator")
 
 
@@ -128,12 +137,55 @@ def _track(proto, ids, track_id, *, name, color, group_id, routing, muted=False)
     _set(t, "DeviceChain/Mixer/Speaker/Manual", "false" if muted else "true")
     _set(t, "DeviceChain/Mixer/Volume/Manual", 1)        # mix is printed in the audio: faders at 0 dB
     _set(t, "DeviceChain/Mixer/Pan/Manual", 0)
-    events = t.find("DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events")
-    if events is not None:
-        for e in list(events):
-            events.remove(e)
+    for path in ("DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events",
+                 "DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events"):
+        events = t.find(path)
+        if events is not None:
+            for e in list(events):
+                events.remove(e)
     ids.renumber(t)
     return t
+
+
+def _midi_clip(proto, env_proto, track, clip_id, *, start, length, name, color, program=None, envelopes=None):
+    """A MIDI clip that sends a Program Change when it starts and CC values from envelopes.
+
+    envelopes: {cc: [(time_in_clip_beats, value), ...]}; the first value is the one at
+    the clip start. Two events at the same time make a step (as Live writes them).
+    """
+    c = copy.deepcopy(proto)
+    c.set("Id", str(clip_id))
+    c.set("Time", repr(start))
+    _set(c, "CurrentStart", repr(start))
+    _set(c, "CurrentEnd", repr(start + length))
+    for tag, value in (("LoopStart", 0), ("LoopEnd", length), ("StartRelative", 0), ("LoopOn", "false"),
+                       ("OutMarker", length), ("HiddenLoopStart", 0), ("HiddenLoopEnd", length)):
+        _set(c, f"Loop/{tag}", value)
+    _set(c, "Name", name)
+    _set(c, "Color", color)
+    _set(c, "ProgramChange", -1 if program is None else program)
+    _set(c, "BankSelectCoarse", -1)
+    _set(c, "BankSelectFine", -1)
+    holder = c.find("Envelopes/Envelopes")
+    for e in list(holder):
+        holder.remove(e)
+    for n, (cc, points) in enumerate(sorted((envelopes or {}).items())):
+        if env_proto is None:
+            raise AlsError("La plantilla MIDI no tiene una envolvente de CC para copiar.")
+        target = track.find(f"DeviceChain/MainSequencer/MidiControllers/ControllerTargets.{int(cc) + CC_TARGET_OFFSET}")
+        if target is None:
+            raise AlsError(f"CC {cc} fuera de rango.")
+        env = copy.deepcopy(env_proto)
+        env.set("Id", str(n))
+        env.find("EnvelopeTarget/PointeeId").set("Value", target.get("Id"))
+        events = env.find("Automation/Events")
+        for e in list(events):
+            events.remove(e)
+        ET.SubElement(events, "FloatEvent", {"Id": "0", "Time": FOREVER_AGO, "Value": repr(float(points[0][1]))})
+        for i, (t, v) in enumerate(points[1:], 1):
+            ET.SubElement(events, "FloatEvent", {"Id": str(i), "Time": repr(float(t)), "Value": repr(float(v))})
+        holder.append(env)
+    return c
 
 
 def _bar_ceil(beats, bpb):
@@ -200,8 +252,36 @@ def build_set(template_path, songs, als_path, profile="2", gap_seconds=30.0, pat
             tracks_el.append(t)
             by_label[(group, label)] = (t, tcolor)
 
+    midi_lanes = []
+    for s in songs:
+        for lane in s.get("midi", []):
+            if lane["label"] not in midi_lanes:
+                midi_lanes.append(lane["label"])
+    midi_tracks = {}
+    if midi_lanes:
+        if tpl.midi_proto is None:
+            raise AlsError("Para las pistas MIDI la plantilla necesita una pista MIDI con un clip.")
+        gcolor, tcolor = COLORS["CONTROL"]
+        gid = track_id
+        track_id += 1
+        tracks_el.append(_track(tpl.group_proto, ids, gid, name="CONTROL", color=gcolor, group_id=-1, routing=TO_MAIN))
+        for label in midi_lanes:
+            t = _track(tpl.midi_proto, ids, track_id, name=label, color=tcolor, group_id=gid, routing=TO_GROUP)
+            track_id += 1
+            tracks_el.append(t)
+            midi_tracks[label] = t
+
     clip_id = 1
     for s, start in zip(songs, starts):
+        for lane in s.get("midi", []):
+            t = midi_tracks[lane["label"]]
+            events = t.find("DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events")
+            for ev in lane["events"]:
+                events.append(_midi_clip(tpl.midi_clip_proto, tpl.envelope_proto, t, clip_id,
+                                         start=start + ev["time"], length=ev["length"], name=ev["name"],
+                                         color=COLORS["CONTROL"][1], program=ev.get("program"),
+                                         envelopes=ev.get("envelopes")))
+                clip_id += 1
         bpm = s["tempo"]["bpm"]
         for f in s["files"]:
             t, color = by_label[(f["group"], f["label"])]
@@ -224,7 +304,8 @@ def build_set(template_path, songs, als_path, profile="2", gap_seconds=30.0, pat
     with gzip.open(als_path, "wb") as f:
         f.write(data)
     return {"als": als_path, "version": tpl.version, "starts": starts,
-            "tracks": [(g, l) for g in lanes for l in lanes[g]], "clips": clip_id - 1}
+            "tracks": [(g, l) for g in lanes for l in lanes[g]] + [("CONTROL", l) for l in midi_lanes],
+            "clips": clip_id - 1}
 
 
 def _tempo_automation(ls, songs, starts):

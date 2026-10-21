@@ -265,6 +265,44 @@
     },
     "notes": {
       "type": "string"
+    },
+    "midi": {
+      "type": "object",
+      "description": "Cambios MIDI por sección: id de banda → id de dispositivo → compás de inicio de sección (texto) → {preset, snapshot, cc}.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "preset": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "Program Change (0 = primer preset)."
+              },
+              "snapshot": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              "cc": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^([0-9]|[1-9][0-9]|1[01][0-9]|12[0-7])$"
+                },
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
