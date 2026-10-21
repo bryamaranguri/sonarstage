@@ -84,19 +84,39 @@ def test_prepare_end_to_end(pack, tmp_path):
     assert gains["Drums"] == gains["Pad"]           # one common gain for the music
 
 
-def test_render_applies_recipe_at_user_sample_rate(pack, tmp_path):
+def _loudness(*arrays):
+    mix = sum(a for a in arrays)
+    return pyln.Meter(48000).integrated_loudness(mix), 20 * np.log10(np.abs(mix).max())
+
+
+def test_render_groups_live_stems_and_sums_the_sequence(pack, tmp_path):
     song_dir, song, _ = prepare(pack, tmp_path / "Biblioteca", quiet=True)
-    result = render_song(song_dir, tmp_path / "show", sample_rate=48000)
-    files = {f["label"]: tmp_path / "show" / f["file"] for f in result["files"]}
-    assert set(files) == {"Click", "Drums", "Guide", "Pad"}
+    m = render_song(song_dir, tmp_path / "show", sample_rate=48000, live=["drums"])
+    groups = {f["label"]: f["group"] for f in m["files"]}
+    assert groups == {"Click": "CUES", "Guide": "CUES", "Drums": "EN VIVO", "Secuencia": "SECUENCIA"}
+    files = {f["label"]: tmp_path / "show" / f["file"] for f in m["files"]}
     for p in files.values():
         info = sf.info(str(p))
-        assert (info.samplerate, info.subtype, info.format) == (48000, "PCM_24", "WAV")
-    mix = sf.read(files["Drums"])[0] + sf.read(files["Pad"])[0]
-    lufs = pyln.Meter(48000).integrated_loudness(mix)
-    peak = 20 * np.log10(np.abs(mix).max())
+        assert (info.samplerate, info.format) == (48000, "WAV")
+    assert json.loads((tmp_path / "show" / "show.json").read_text())["files"][-1]["contains"] == ["Pad"]
+    # sequence + live backups rebuild the full mix at the common loudness
+    lufs, peak = _loudness(sf.read(files["Drums"])[0], sf.read(files["Secuencia"])[0])
     assert peak <= printing.PEAK_CEILING_DBFS + 0.1
     assert lufs == pytest.approx(printing.TARGET_LUFS, abs=0.3) or peak >= printing.PEAK_CEILING_DBFS - 0.2
+
+
+def test_render_without_live_puts_all_music_in_the_sequence(pack, tmp_path):
+    song_dir, _, _ = prepare(pack, tmp_path / "Biblioteca", quiet=True)
+    m = render_song(song_dir, tmp_path / "show", sample_rate=48000, live=[])
+    assert [f["label"] for f in m["files"] if f["group"] == "SECUENCIA"] == ["Secuencia"]
+    assert m["files"][-1]["contains"] == ["Drums", "Pad"]
+
+
+def test_live_matches_stem_names_and_reports_unknown(pack, tmp_path):
+    song_dir, _, _ = prepare(pack, tmp_path / "Biblioteca", quiet=True)
+    m = render_song(song_dir, tmp_path / "show", live=["Pad", "bass"])
+    assert {f["label"] for f in m["files"] if f["group"] == "EN VIVO"} == {"Pad"}
+    assert m["live_not_in_song"] == ["bass"]
 
 
 def test_render_refuses_missing_transposed_version(pack, tmp_path):

@@ -99,7 +99,10 @@ Biblioteca/
 1. Elegir canciones (orden editable) y **canciones de reserva** fuera del setlist.
 2. Aplicar la **configuración semanal** (quién toca qué) y la matriz de partes de la banda.
 3. Revisar espacio en el disco interno.
-4. Copiar las versiones preparadas a WAV en el disco interno y **verificar** cada archivo.
+4. Renderizar a WAV en el disco interno (`render.py`) y **verificar** cada archivo:
+   CUES y cada stem de EN VIVO como archivos sueltos; todo lo de SECUENCIA **sumado en
+   un solo archivo estéreo** (nunca se mutea por separado; ahorra ~60 % de espacio y
+   pistas). Un `show.json` por canción describe archivos y grupos para el generador.
 5. Generar el `.als` para la versión de Live del usuario, siguiendo `docs/plantilla.md`:
    pistas fijas por rol, locators por canción y sección, espacio entre canciones,
    ruteo según el perfil de salidas.

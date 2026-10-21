@@ -113,12 +113,23 @@ Decisiones aplicadas: objetivo −18 LUFS y biblioteca con originales + receta.
 - Ahora manda el volumen objetivo en las dos canciones: diferencia **0.0 dB**.
 - Importar sin imprimir: 25–36 s por canción. Renderizar con verificación: 58–76 s
   en el entorno de pruebas (escribe sobre una carpeta compartida; en la Mac será menor).
-- **El show en WAV es pesado**: ~1.5 GB por canción, ~18 GB para una boda de 12
-  canciones. Puede ser un problema en una MacBook Air de 256 GB. Idea a decidir:
-  sumar en un solo archivo estéreo todo lo que va al grupo SECUENCIA (nunca se mutea
-  por separado) y dejar sueltos solo los stems de EN VIVO y los CUES. Reduciría el
-  tamaño y la cantidad de pistas en Ableton, a cambio de no poder ajustar esos stems
-  uno por uno durante el show.
+- **El show en WAV era pesado**: ~1.5 GB por canción, ~18 GB para una boda de 12
+  canciones. Decisión: sumar todo el grupo SECUENCIA en un solo archivo estéreo.
+
+## Show agrupado (tercera prueba)
+
+En vivo: Drums, Bass, EG 1 (como en la plantilla de Bryam).
+
+| Canción | Archivos | Tamaño (antes) | Banda + secuencia | Render |
+|---|---|---|---|---|
+| Holy Forever | 7 | **652 MB** (1676) | −18.0 LUFS, pico −1.4 | 35 s |
+| Alegras mis días | 6 | **489 MB** (1304) | −18.0 LUFS, pico −2.1 | 25 s |
+
+- 61–62 % menos espacio: una boda de 12 canciones baja de ~18 GB a ~7 GB.
+- La suma no cambia el sonido: banda + secuencia mide igual que todos los stems sueltos.
+- Holy Forever trae **Bass y Synth Bass**: con "bass" en vivo, los dos fueron a EN
+  VIVO. Si el bajista solo toca uno, eso lo resuelve la matriz de partes (o, por
+  ahora, indicar el nombre del stem en lugar del rol: `--live "drums,Bass,EG 1"`).
 
 ## Rendimiento
 
