@@ -31,8 +31,13 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `levels` | LUFS, pico, actividad y compatibilidad mono; mezcla completa |
 | `guide` | Dónde habla la guía, en compás y tiempo |
 | `analyze` | Reporte completo de un paquete |
+| `extract` | Descomprime ZIP/RAR de forma segura |
+| `prepare` | Importa a la biblioteca: originales + receta (`cancion.json`) |
+| `transpose` | Versión en otro tono (solo armónicos), compensada en tiempo y volumen |
+| `render` | WAV del show: CUES y EN VIVO sueltos, SECUENCIA sumada |
 
 Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
 
-Previstos: faster-whisper (transcripción de la guía), Rubber Band (tono),
-soundfile (FLAC/WAV).
+El cambio de tono necesita un ffmpeg compilado con Rubber Band (el de Homebrew lo trae).
+
+Previsto: faster-whisper (transcripción de la guía).

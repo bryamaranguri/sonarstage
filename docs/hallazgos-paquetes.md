@@ -131,6 +131,30 @@ En vivo: Drums, Bass, EG 1 (como en la plantilla de Bryam).
   VIVO. Si el bajista solo toca uno, eso lo resuelve la matriz de partes (o, por
   ahora, indicar el nombre del stem en lugar del rol: `--live "drums,Bass,EG 1"`).
 
+## Cambio de tono (cuarta prueba)
+
+Rubber Band vía ffmpeg, máxima calidad, solo en stems armónicos (formantes preservados
+en voces). Click, guía, batería y percusión no cambian.
+
+| Canción | Tono | Stems transpuestos | Tono medido | Tiempo | Volumen del show |
+|---|---|---|---|---|---|
+| Holy Forever | −2 | 13 de 18 | −1.98 st | 49 s | −18.6 LUFS (limitado por pico) |
+| Alegras mis días | +1 | 12 de 16 | +1.04 st | ~35 s | −18.0 LUFS |
+
+- **Duración**: idéntica al original, muestra por muestra.
+- **Desfase del procesador**: ~1.7 ms por semitono en envolventes (tarde al bajar,
+  temprano al subir) y ~10 ms recortados al final. Es determinista: se calibra por
+  canción con ráfagas de tono y se compensa. Residuo en señal de prueba: ≤0.5 ms. En
+  ataques de música real el efecto es algo menor, así que el residuo queda en ±1–2 ms
+  (sin compensar eran 1–3 ms). En ambos casos, por debajo de lo perceptible.
+- **Volumen**: transponer cambia el volumen percibido (−0.4 a −0.8 LU). Cada versión
+  guarda su ajuste en `cancion.json` (`key.gainCorrectionDb`), aplicado igual a todos
+  los stems de música para no alterar el balance. Holy Forever en −2 llega a −18.6
+  porque el techo de pico (−1 dBFS) no deja subir más.
+- **Pendiente**: *Loop* (Holy Forever) está clasificado como percusión y no se
+  transpone. Si un loop trae notas, desafinaría: la pantalla de confirmación de roles
+  debe permitir marcarlo como armónico.
+
 ## Rendimiento
 
 Paquete de 18 stems de 5:23 min: 24 s y 1 GB de memoria máxima, procesando un stem

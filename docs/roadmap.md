@@ -13,7 +13,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [ ] Secciones desde la guía (Whisper, es/en) — *posiciones listas; falta transcribir en la Mac*
 - [ ] Estimación de tonalidad
 - [ ] Mezcla por plantilla de roles + normalización LUFS de la canción
-- [ ] Cambio de tono offline en stems armónicos
+- [x] Cambio de tono offline en stems armónicos (compensación de desfase y de volumen)
 - [ ] Matriz de partes (`<rol> en vivo` / `<rol> secuencia`)
 - [ ] Biblioteca: `cancion.json` + preparadas en FLAC
 - [ ] Generador de show `.als` para Live 11 y 12 con perfiles de salida

@@ -1,7 +1,7 @@
 """Render a library song into the files a show needs.
 
     python -m sonarstage_import.render <song folder> --out <dir>
-        [--sample-rate 48000] [--live "drums,bass,EG 1"]
+        [--sample-rate 48000] [--live "drums,bass,EG 1"] [--semitones -2]
 
 Applies the recipe in cancion.json (one gain per stem) and writes WAV at the user's
 sample rate, so Ableton neither decodes nor resamples on stage. Files per group:
@@ -58,9 +58,9 @@ def _write_checked(path, y, sr):
 def render_song(song_dir, out_dir, sample_rate=48000, live=(), semitones=0):
     song_dir, out_dir = Path(song_dir), Path(out_dir)
     song = json.loads((song_dir / "cancion.json").read_text())
-    if semitones:
-        if not (song_dir / "preparada" / f"{semitones:+d}").exists():
-            raise RenderError(f"No hay versión impresa en {semitones:+d} semitonos (cambio de tono pendiente).")
+    prepared_dir = song_dir / "preparada" / f"{semitones:+d}"
+    if semitones and not prepared_dir.exists():
+        raise RenderError(f"No hay versión en {semitones:+d} semitonos: créala primero con transpose.")
     live = {x.strip().lower() for x in live if x.strip()}
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -72,7 +72,15 @@ def render_song(song_dir, out_dir, sample_rate=48000, live=(), semitones=0):
         if stem["role"] == "premix" and has_separate_music:
             skipped.append(stem["label"])
             continue
-        x = decode(song_dir / "originales" / stem["file"], sample_rate) * printing.db_to_gain(stem["gainDb"])
+        # transposed harmonic stems come from preparada/<n>/; click, guide and drums never change key
+        source = (prepared_dir / f"{stem['label']}.flac" if semitones and stem["harmonic"]
+                  else song_dir / "originales" / stem["file"])
+        if not source.exists():
+            raise RenderError(f"Falta {source.name} en la versión {semitones:+d}.")
+        gain = stem["gainDb"]
+        if semitones and stem["role"] not in CUE_ROLES:
+            gain += song.get("key", {}).get("gainCorrectionDb", {}).get(f"{semitones:+d}", 0.0)
+        x = decode(source, sample_rate) * printing.db_to_gain(gain)
         if stem["role"] in CUE_ROLES:
             files.append({**_write_checked(out_dir / f"{stem['label']}.wav", x, sample_rate),
                           "group": "CUES", "role": stem["role"], "label": stem["label"]})
@@ -95,7 +103,7 @@ def render_song(song_dir, out_dir, sample_rate=48000, live=(), semitones=0):
 
     unmatched = sorted(live - {k for s in stems for k in (s["role"].lower(), s["label"].lower())})
     manifest = {
-        "song": song["title"], "id": song["id"], "sample_rate": sample_rate,
+        "song": song["title"], "id": song["id"], "sample_rate": sample_rate, "semitones": semitones,
         "tempo": song["tempo"], "sections": song["sections"],
         "live": sorted(live), "live_not_in_song": unmatched, "skipped": skipped,
         "files": files,
@@ -110,16 +118,18 @@ def main(argv=None):
     ap.add_argument("--out", required=True)
     ap.add_argument("--sample-rate", type=int, default=48000)
     ap.add_argument("--live", default="", help="Roles o stems que toca la banda, separados por comas")
+    ap.add_argument("--semitones", type=int, default=0, help="Versión transpuesta a usar (debe existir)")
     args = ap.parse_args(argv)
     try:
-        m = render_song(args.song, args.out, args.sample_rate, args.live.split(","))
+        m = render_song(args.song, args.out, args.sample_rate, args.live.split(","), args.semitones)
     except RenderError as e:
         print(f"No se pudo renderizar: {e}", file=sys.stderr)
         return 1
     groups = {}
     for f in m["files"]:
         groups.setdefault(f["group"], []).append(f["label"])
-    print(f"{m['song']} a {m['sample_rate']} Hz:")
+    tono = f", {m['semitones']:+d} semitonos" if m["semitones"] else ""
+    print(f"{m['song']} a {m['sample_rate']} Hz{tono}:")
     for g in ("CUES", "EN VIVO", "SECUENCIA"):
         if g in groups:
             extra = f" (suma de {len(m['files'][-1]['contains'])} stems)" if g == "SECUENCIA" else ""
