@@ -75,7 +75,9 @@ def test_prepare_end_to_end(pack, tmp_path):
     assert library.validate(song) is None
     assert json.loads((song_dir / "cancion.json").read_text())["tempo"]["bpm"] == pytest.approx(120, abs=0.1)
     assert song["sections"][0]["startBar"] == 1
-    assert [s["startBar"] for s in song["sections"]] == [1, 3, 7]
+    # guide cues at bars 1, 3, 7 -> sections start one bar later; bar 1 is the count-in
+    assert [s["startBar"] for s in song["sections"]] == [1, 4, 8]
+    assert song["sections"][0]["name"] == "Cuenta"
 
     # the library keeps originals + recipe only; nothing printed at import
     assert (song_dir / "originales" / "Click.wav").exists()
@@ -116,7 +118,7 @@ def test_live_matches_stem_names_and_reports_unknown(pack, tmp_path):
     song_dir, _, _ = prepare(pack, tmp_path / "Biblioteca", quiet=True)
     m = render_song(song_dir, tmp_path / "show", live=["Pad", "bass"])
     assert {f["label"] for f in m["files"] if f["group"] == "EN VIVO"} == {"Pad"}
-    assert m["live_not_in_song"] == ["bass"]
+    assert m["warnings"] == ["No hay stems para: bass"]
 
 
 def test_render_refuses_missing_transposed_version(pack, tmp_path):

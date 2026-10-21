@@ -14,7 +14,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [ ] Estimación de tonalidad
 - [ ] Mezcla por plantilla de roles + normalización LUFS de la canción
 - [x] Cambio de tono offline en stems armónicos (compensación de desfase y de volumen)
-- [ ] Matriz de partes (`<rol> en vivo` / `<rol> secuencia`)
+- [x] Banda, configuración semanal y matriz de partes (una pista EN VIVO por músico) — *por línea de comandos; falta la interfaz*
 - [ ] Biblioteca: `cancion.json` + preparadas en FLAC
 - [ ] Generador de show `.als` con formato de Live 12.0 (abre en 12.0 a 12.4) y perfiles de salida
 

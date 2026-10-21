@@ -1,14 +1,16 @@
 """Render a library song into the files a show needs.
 
-    python -m sonarstage_import.render <song folder> --out <dir>
-        [--sample-rate 48000] [--live "drums,bass,EG 1"] [--semitones -2]
+    python -m sonarstage_import.render <song folder> --out <dir> --band <banda.json>
+        [--presentes bateria,bajo,guitarra] [--sample-rate 48000] [--semitones -2]
+    python -m sonarstage_import.render <song folder> --out <dir> --live "drums,EG 1"   (simple)
 
 Applies the recipe in cancion.json (one gain per stem) and writes WAV at the user's
 sample rate, so Ableton neither decodes nor resamples on stage. Files per group:
 
 - CUES: click and guide, one file each.
-- EN VIVO: one file per stem the band plays this week (matched by role or by stem
-  name), muted in the show and ready to unmute if a musician has a problem.
+- EN VIVO: one file per musician present this week, with exactly the stems they cover
+  in each section (parts matrix, see parts.py), muted in the show and ready to unmute
+  if that musician has a problem. With --live instead of a band, one file per stem.
 - SECUENCIA: everything else summed into one stereo file. Those stems are never muted
   separately, so keeping them apart only cost disk space and tracks (a 12-song show
   went from ~18 GB to a fraction of that).
@@ -25,7 +27,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from . import printing
+from . import parts, printing
 from .audio_io import decode
 
 CUE_ROLES = {"click", "guide"}
@@ -36,9 +38,17 @@ class RenderError(Exception):
     pass
 
 
-def _is_live(stem, live):
-    keys = {stem["role"].lower(), stem["label"].lower()}
-    return bool(keys & live)
+def _simple_coverage(stems, live):
+    """--live "drums,EG 1": every matching stem is its own 'musician' for the whole song."""
+    wanted = {x.strip().lower() for x in live if x.strip()}
+    cov = [{"id": st["label"].lower(), "name": st["label"], "stems": {st["label"]: None}}
+           for st in stems if st["role"] not in CUE_ROLES and {st["role"].lower(), st["label"].lower()} & wanted]
+    found = {k for st in stems for k in (st["role"].lower(), st["label"].lower())}
+    return cov, [f"No hay stems para: {w}" for w in sorted(wanted - found)]
+
+
+def _safe_filename(name):
+    return "".join(c if c not in '/\\:*?"<>|' else "-" for c in name).strip() or "pista"
 
 
 def _write_checked(path, y, sr):
@@ -55,18 +65,34 @@ def _write_checked(path, y, sr):
     return {"file": path.name, "frames": info.frames, "peak_db": round(peak, 1), "subtype": subtype}
 
 
-def render_song(song_dir, out_dir, sample_rate=48000, live=(), semitones=0):
+def render_song(song_dir, out_dir, sample_rate=48000, live=(), semitones=0, band=None, present=None):
     song_dir, out_dir = Path(song_dir), Path(out_dir)
     song = json.loads((song_dir / "cancion.json").read_text())
     prepared_dir = song_dir / "preparada" / f"{semitones:+d}"
     if semitones and not prepared_dir.exists():
         raise RenderError(f"No hay versión en {semitones:+d} semitonos: créala primero con transpose.")
-    live = {x.strip().lower() for x in live if x.strip()}
+    if band is not None and any(x.strip() for x in live):
+        raise RenderError("Usa la banda o --live, no los dos.")
+    stems = song["stems"]
+    try:
+        cov, warnings = (parts.coverage(song, band, present) if band is not None
+                         else _simple_coverage(stems, live))
+    except parts.PartsError as e:
+        raise RenderError(str(e)) from e
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    stems = song["stems"]
     has_separate_music = any(s["role"] not in CUE_ROLES | {"premix"} for s in stems)
-    files, sequence, sequence_labels, skipped = [], None, [], []
+    files, skipped = [], []
+    sequence, sequence_labels = None, []
+    live_audio = {r["id"]: None for r in cov}
+
+    def add(acc, y):
+        if acc is None:
+            return y.astype(np.float32).copy()
+        n = min(len(acc), len(y))
+        acc = acc[:n]
+        acc += y[:n]
+        return acc
 
     for stem in stems:
         if stem["role"] == "premix" and has_separate_music:
@@ -80,32 +106,51 @@ def render_song(song_dir, out_dir, sample_rate=48000, live=(), semitones=0):
         gain = stem["gainDb"]
         if semitones and stem["role"] not in CUE_ROLES:
             gain += song.get("key", {}).get("gainCorrectionDb", {}).get(f"{semitones:+d}", 0.0)
-        x = decode(source, sample_rate) * printing.db_to_gain(gain)
+        x = (decode(source, sample_rate) * printing.db_to_gain(gain)).astype(np.float32)
         if stem["role"] in CUE_ROLES:
-            files.append({**_write_checked(out_dir / f"{stem['label']}.wav", x, sample_rate),
+            files.append({**_write_checked(out_dir / f"{_safe_filename(stem['label'])}.wav", x, sample_rate),
                           "group": "CUES", "role": stem["role"], "label": stem["label"]})
-        elif _is_live(stem, live):
-            files.append({**_write_checked(out_dir / f"{stem['label']}.wav", x, sample_rate),
-                          "group": "EN VIVO", "role": stem["role"], "label": stem["label"]})
-        else:
-            if sequence is None:
-                sequence = x.astype(np.float64)
-            else:
-                n = min(len(sequence), len(x))
-                sequence = sequence[:n] + x[:n]
-            sequence_labels.append(stem["label"])
-        del x
+            continue
 
+        # split the stem between the musicians who cover it and the sequence
+        rest = np.ones(len(x), dtype=np.float32)
+        bounds = None
+        for r in cov:
+            if stem["label"] not in r["stems"]:
+                continue
+            secs = r["stems"][stem["label"]]
+            if secs is None:
+                m = np.ones(len(x), dtype=np.float32)
+            else:
+                bounds = bounds or parts.section_bounds(song, len(x), sample_rate)
+                m = parts.mask(len(x), bounds, secs, sample_rate)
+            live_audio[r["id"]] = add(live_audio[r["id"]], x * m[:, None])
+            rest -= m
+        if rest.max() > 1e-6:
+            sequence = add(sequence, x * np.clip(rest, 0, 1)[:, None])
+            sequence_labels.append(stem["label"])
+        del x, rest
+
+    live_files = []
+    for r in cov:
+        audio = live_audio[r["id"]]
+        if audio is None:
+            continue
+        info = _write_checked(out_dir / f"{_safe_filename(r['name'])}.wav", audio, sample_rate)
+        live_files.append({**info, "group": "EN VIVO", "role": "live", "label": r["name"], "musician": r["id"],
+                           "contains": {lab: ("todo" if secs is None else sorted(secs))
+                                        for lab, secs in r["stems"].items()}})
+    files.extend(live_files)
     if sequence is not None:
         files.append({**_write_checked(out_dir / f"{SEQUENCE_FILE}.wav", sequence, sample_rate),
                       "group": "SECUENCIA", "role": "sequence", "label": SEQUENCE_FILE,
                       "contains": sequence_labels})
 
-    unmatched = sorted(live - {k for s in stems for k in (s["role"].lower(), s["label"].lower())})
     manifest = {
         "song": song["title"], "id": song["id"], "sample_rate": sample_rate, "semitones": semitones,
         "tempo": song["tempo"], "sections": song["sections"],
-        "live": sorted(live), "live_not_in_song": unmatched, "skipped": skipped,
+        "band": band["id"] if band is not None else None,
+        "present": [r["id"] for r in cov], "warnings": warnings, "skipped": skipped,
         "files": files,
     }
     (out_dir / "show.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
@@ -117,12 +162,16 @@ def main(argv=None):
     ap.add_argument("song")
     ap.add_argument("--out", required=True)
     ap.add_argument("--sample-rate", type=int, default=48000)
-    ap.add_argument("--live", default="", help="Roles o stems que toca la banda, separados por comas")
+    ap.add_argument("--band", help="Archivo de la banda (banda.json)")
+    ap.add_argument("--presentes", help="Músicos que tocan esta semana, separados por comas (por defecto, todos)")
+    ap.add_argument("--live", default="", help="Modo simple: roles o stems en vivo, separados por comas")
     ap.add_argument("--semitones", type=int, default=0, help="Versión transpuesta a usar (debe existir)")
     args = ap.parse_args(argv)
     try:
-        m = render_song(args.song, args.out, args.sample_rate, args.live.split(","), args.semitones)
-    except RenderError as e:
+        band = parts.load_band(args.band) if args.band else None
+        present = args.presentes.split(",") if args.presentes else None
+        m = render_song(args.song, args.out, args.sample_rate, args.live.split(","), args.semitones, band, present)
+    except (RenderError, parts.PartsError) as e:
         print(f"No se pudo renderizar: {e}", file=sys.stderr)
         return 1
     groups = {}
@@ -134,8 +183,8 @@ def main(argv=None):
         if g in groups:
             extra = f" (suma de {len(m['files'][-1]['contains'])} stems)" if g == "SECUENCIA" else ""
             print(f"  {g:9} {', '.join(groups[g])}{extra}")
-    if m["live_not_in_song"]:
-        print(f"  ⚠ No hay stems para: {', '.join(m['live_not_in_song'])}")
+    for w in m["warnings"]:
+        print(f"  ⚠ {w}")
     if m["skipped"]:
         print(f"  Premezcla omitida (hay stems separados): {', '.join(m['skipped'])}")
     return 0

@@ -231,7 +231,7 @@
     },
     "parts": {
       "type": "object",
-      "description": "Matriz de partes por banda: banda → rol → sección → labels de stems que cubre el músico.",
+      "description": "Matriz de partes: id de banda → id de músico → compás de inicio de sección (texto) → stems que cubre ese músico en esa sección. Si un músico tiene matriz en la canción, las secciones que no aparecen son secciones donde no toca. Sin matriz, se usan sus stems por defecto en toda la canción.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": {

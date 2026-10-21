@@ -37,6 +37,8 @@ Documentación completa en `docs/`. Lee primero `docs/arquitectura.md`.
   soporte (12.0): las versiones nuevas sí abren sets de versiones anteriores.
 - Nunca compartir un show guardado desde Live 12.4 con alguien en 12.0: cada usuario
   genera su propio show desde la biblioteca.
+- **Pendiente**: versión exacta del amigo (12.0.x). Mientras tanto, la referencia es la
+  versión de Bryam (12.4.3) y su plantilla `Bondad de Dios.als` (guardada en 12.0.5).
 - Todos tienen **SSD externo**: la biblioteca vive ahí; el show se copia al disco interno.
 
 ## Vocabulario
@@ -45,8 +47,12 @@ Documentación completa en `docs/`. Lee primero `docs/arquitectura.md`.
 - **Show**: proyecto de Ableton generado a partir de la biblioteca para una fecha
   (en el disco interno, se borra después).
 - **Configuración semanal**: qué instrumentos tienen instrumentista esa semana.
+- **Banda**: músicos, su rol y los stems que cubren por defecto (`Biblioteca/_bandas/<id>.json`,
+  `shared/banda.schema.json`).
+- **Configuración semanal**: qué músicos de la banda tocan esa semana (`--presentes`).
 - **Matriz de partes**: por canción y sección, qué stems cubre cada músico en vivo
-  (p. ej. EG 1 en el verso, EG 3 en el coro). Se guarda por banda.
+  (p. ej. EG 2 en la intro, EG 1 desde el coro). Se guarda en `cancion.json` por banda;
+  cada músico presente recibe una pista EN VIVO con exactamente lo que cubre.
 - **EN VIVO / SECUENCIA / CUES**: los tres grupos de pistas (ver `docs/plantilla.md`).
 
 ## Idioma

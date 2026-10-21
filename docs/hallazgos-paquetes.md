@@ -155,6 +155,30 @@ en voces). Click, guía, batería y percusión no cambian.
   transpone. Si un loop trae notas, desafinaría: la pantalla de confirmación de roles
   debe permitir marcarlo como armónico.
 
+## Secciones y matriz de partes (quinta prueba)
+
+**Dónde empieza cada sección.** Midiendo la energía de la mezcla compás a compás: el
+mayor cambio está un compás después del aviso de la guía (Holy Forever: 9 de 13). La
+guía anuncia en el compás anterior, a veces en dos compases seguidos ("Coro… dos,
+tres"); la sección empieza después del último. Los compases 1–2 son la cuenta (el
+bombo de Alegras entra en el compás 3). Con esa regla, las dos canciones quedan en
+frases regulares de 4 y 8 compases (antes había secciones de 5, 7 y 9).
+
+**Cuadrícula de actividad** (`parts grid`), guitarras de Alegras mis días: EG 2 sola en
+las secciones 3–5, EG 1 desde la 6, EG 3 solo en 6, 12 y 17.
+
+**Matriz de ejemplo**: guitarra con EG 2 en 3–5 y EG 1 en 6–24. Medido sobre la pista
+EN VIVO escrita: silencio en cuenta e intro; correlación 1.00 con EG 2 en 3–5 y con
+EG 1 desde la 6. En vivo + secuencia: −18.0 LUFS, pico −2.1 (idéntico a sin matriz).
+
+- Las fronteras entre secciones usan fundidos complementarios de 10 ms: la suma de
+  en vivo y secuencia es exacta.
+- Limitación conocida: la frontera es el tiempo 1. Una anacrusa (notas antes del
+  tiempo 1 que pertenecen a la sección siguiente) queda con la sección anterior. Si
+  molesta, se puede adelantar la frontera medio tiempo.
+- Un mismo stem en la misma sección no puede ser de dos músicos presentes (sonaría
+  doble al desmutear): el render lo rechaza.
+
 ## Rendimiento
 
 Paquete de 18 stems de 5:23 min: 24 s y 1 GB de memoria máxima, procesando un stem

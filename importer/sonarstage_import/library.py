@@ -22,27 +22,38 @@ def title_from_source(name):
     return stem.title() if stem.isupper() else stem
 
 
-def sections_from_cues(cues, total_bars, min_gap_bars=2):
+def sections_from_cues(cues, total_bars, min_gap_bars=2, lead_bars=1):
     """Provisional sections from where the guide speaks on beat 1.
 
-    Cues one bar apart are one announcement ("coro… dos, tres, cuatro"), so they merge.
-    The first section always starts at bar 1 (it contains the count-in). Names stay
-    generic until the guide is transcribed.
+    The guide announces a section during the bar before it ("Coro…" and the section
+    starts on the next downbeat), so each cue opens a section `lead_bars` later. Measured
+    on two real packs: the mix energy changes most one bar after the cue. Cues in
+    consecutive bars are one announcement and the section starts after the last one; the
+    count-in (bars 1 and 2) becomes its own first section. Boundaries closer than
+    `min_gap_bars` merge. Names stay generic until the guide is transcribed.
     """
     downbeats = sorted({c["bar"] for c in cues if c["beat"] < 1.5})
-    starts = []
+    count_in = 1 in downbeats
+    # An announcement can span consecutive bars ("Coro…" then "dos, tres"): the section
+    # starts after its last bar.
+    announcements = []
     for bar in downbeats:
-        if not starts or bar - starts[-1] >= min_gap_bars:
-            starts.append(bar)
-    if not starts or starts[0] != 1:
-        starts.insert(0, 1)
+        if announcements and bar - announcements[-1][-1] == 1:
+            announcements[-1].append(bar)
+        else:
+            announcements.append([bar])
+    starts = [1]
+    for group in announcements:
+        start = group[-1] + lead_bars
+        if start - starts[-1] >= min_gap_bars:
+            starts.append(start)
     starts = [b for b in starts if b <= total_bars]
     sections = []
     for i, start in enumerate(starts):
         end = starts[i + 1] if i + 1 < len(starts) else total_bars + 1
         if end > start:
-            sections.append({"name": "Inicio" if i == 0 else f"Sección {i}", "kind": "other",
-                             "startBar": int(start), "bars": int(end - start)})
+            name = ("Cuenta" if count_in else "Inicio") if i == 0 else f"Sección {i}"
+            sections.append({"name": name, "kind": "other", "startBar": int(start), "bars": int(end - start)})
     return sections
 
 

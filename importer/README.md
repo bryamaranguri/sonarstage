@@ -34,7 +34,8 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `extract` | Descomprime ZIP/RAR de forma segura |
 | `prepare` | Importa a la biblioteca: originales + receta (`cancion.json`) |
 | `transpose` | Versión en otro tono (solo armónicos), compensada en tiempo y volumen |
-| `render` | WAV del show: CUES y EN VIVO sueltos, SECUENCIA sumada |
+| `parts` | Banda, cuadrícula de actividad y matriz de partes por sección |
+| `render` | WAV del show: CUES, una pista EN VIVO por músico presente, SECUENCIA sumada |
 
 Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
 
