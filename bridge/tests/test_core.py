@@ -35,10 +35,12 @@ class FakeSong:
         self.cue_points = [Cue(self, n, t) for n, t in cues]
         self.tracks = [Track("Click"), Track("Bajo"), Track("Secuencia")]
         self.clip_trigger_quantization = None
+        self.start_time = 0.0                       # Live's start marker
         self.queued_jump = None
         self.jumps = []           # (from, to) actually performed
 
     def start_playing(self):
+        self.current_song_time = self.start_time     # as Live does: from the start marker
         self.is_playing = True
 
     def continue_playing(self):
@@ -92,7 +94,7 @@ def test_structure_and_state(setup):
 def test_goto_waits_for_the_end_of_the_section(setup):
     core, song = setup
     song.current_song_time = 25.0                     # bar 1 of "Sección 2" (24–40)
-    song.start_playing()
+    song.continue_playing()                           # play from where the test put it
     assert core.handle({"cmd": "goto", "section": "Sección 1"})["state"]["pending"] == "Sección 1"
     run(core, song, 12)                               # still inside the section: nothing yet
     assert song.jumps == []
@@ -117,7 +119,7 @@ def test_section_names_resolve_within_the_current_song(setup):
 def test_repeat_loops_the_section_until_released(setup):
     core, song = setup
     song.current_song_time = 26.0
-    song.start_playing()
+    song.continue_playing()                           # play from where the test put it
     core.handle({"cmd": "repeat"})
     assert (song.loop, song.loop_start, song.loop_length) == (True, 24, 16)
     run(core, song, 20)                               # passes the end of the section: loops back
@@ -130,7 +132,7 @@ def test_repeat_loops_the_section_until_released(setup):
 def test_autostop_at_the_next_song(setup):
     core, song = setup
     song.current_song_time = 420.0
-    song.start_playing()
+    song.continue_playing()                           # play from where the test put it
     run(core, song, 8)
     assert not song.is_playing and song.current_song_time == 424
     assert core.state()["song"] == 2
@@ -141,7 +143,7 @@ def test_autostop_at_the_next_song(setup):
 def test_jump_across_songs_does_not_autostop(setup):
     core, song = setup
     song.current_song_time = 37.0                     # last bar of "Sección 2" (24–40)
-    song.start_playing()
+    song.continue_playing()                           # play from where the test put it
     core.handle({"cmd": "goto", "section": "2. Alegras mis días", "any_song": True})
     run(core, song, 4)
     assert song.jumps == [(40, 424)]                  # jumped at the section end…
@@ -202,3 +204,35 @@ def test_setlist_and_message(setup):
         {"number": 2, "title": "Alegras mis días", "sections": ["Sección 1", "Sección 2"]}]
     assert r["tracks"] == ["Click", "Bajo", "Secuencia"]
     assert core.handle({"cmd": "message", "text": "Voz: repetir"})["ok"] and shown == ["Voz: repetir"]
+
+
+def test_play_after_choosing_a_song_starts_that_song(setup):
+    # "Secuencia, dale" … "segunda canción" … "dale": must play song 2, not song 1
+    core, song = setup
+    core.handle({"cmd": "play"})
+    run(core, song, 8)
+    core.handle({"cmd": "song", "number": 2})
+    assert not song.is_playing and song.current_song_time == 424
+    core.handle({"cmd": "play"})
+    assert song.is_playing and song.current_song_time == 424
+
+
+class NoStartTime(FakeSong):
+    """A Live where the start marker cannot be set from a script."""
+
+    def __setattr__(self, name, value):
+        if name == "start_time" and hasattr(self, "start_time"):
+            raise AttributeError("read only")
+        object.__setattr__(self, name, value)
+
+
+def test_play_resumes_where_we_parked_even_if_the_marker_is_read_only():
+    song = NoStartTime(CUES)
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    core.handle({"cmd": "song", "number": 2})
+    core.handle({"cmd": "play"})
+    assert song.is_playing and song.current_song_time == 424
+    core.handle({"cmd": "stop"})
+    core.handle({"cmd": "goto", "section": "Sección 2"})        # stopped: moves at once
+    core.handle({"cmd": "play"})
+    assert song.current_song_time == 448

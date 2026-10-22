@@ -45,6 +45,7 @@ class LinkCore(object):
         self.log = log or (lambda msg: None)
         self.notify = notify or (lambda msg: None)    # Live's status bar
         self.pending = None                           # Section to jump to
+        self.parked = None                            # where we left the stopped transport
         self.autostop = True
         self._last_beat = None
         self.sections = []
@@ -117,7 +118,7 @@ class LinkCore(object):
             elif cmd == "refresh":
                 self.refresh()
             elif cmd == "play":
-                self.song.continue_playing() if msg.get("continue") else self.song.start_playing()
+                self._play(msg)
             elif cmd == "stop":
                 self.song.stop_playing()
                 self.pending = None
@@ -168,9 +169,31 @@ class LinkCore(object):
             raise ValueError("no hay más secciones")
         self._arm(self.sections[i])
 
+    def _park(self, beat):
+        """Leave the stopped transport at `beat`, so the next play starts there.
+        Live's play starts from its start marker, not from the playhead: move both."""
+        self.song.current_song_time = beat
+        try:
+            self.song.start_time = beat
+        except Exception:
+            pass                                  # not settable in this Live: _play handles it
+        self.parked = beat
+
+    def _play(self, msg):
+        if self.song.is_playing:
+            return
+        if self.parked is not None:
+            self.song.current_song_time = self.parked
+            self.parked = None
+            self.song.continue_playing()          # from the playhead, wherever the marker is
+        elif msg.get("continue"):
+            self.song.continue_playing()
+        else:
+            self.song.start_playing()
+
     def _arm(self, target):
         if not self.song.is_playing:
-            self.song.current_song_time = target.start
+            self._park(target.start)
             self.pending = None
             return
         self.song.loop = False
@@ -194,7 +217,7 @@ class LinkCore(object):
         self.pending = None
         if self.song.is_playing:
             self.song.stop_playing()
-        self.song.current_song_time = starts[0].start
+        self._park(starts[0].start)
 
     def _next_song(self):
         current = self.section_at(self.song.current_song_time)
@@ -226,7 +249,7 @@ class LinkCore(object):
                         self.song.stop_playing()
                         self.song.loop = False
                         self.pending = None
-                        self.song.current_song_time = s.start
+                        self._park(s.start)
                         beat = s.start
                         break
         self._last_beat = beat
