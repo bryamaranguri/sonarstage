@@ -10,7 +10,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Alineación de stems contra el click (prototipo)
 - [x] Tempo, compás y primer tiempo desde click + bombo (prototipo)
 - [x] Medición de volumen, saturación y compatibilidad mono (prototipo)
-- [ ] Secciones desde la guía (Whisper, es/en) — *módulo `label` listo; falta la primera corrida en la Mac (descarga del modelo)*
+- [x] Secciones desde la guía (Whisper, es/en) — *probado con las dos canciones; falta llevarlo a la pantalla de revisión*
 - [ ] Estimación de tonalidad
 - [ ] Mezcla por plantilla de roles + normalización LUFS de la canción
 - [x] Cambio de tono offline en stems armónicos (compensación de desfase y de volumen)
@@ -34,6 +34,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 
 ## Fase 4 — Sistema completo
 - [ ] Instalador `.dmg` y asistente de primer arranque
+  - [ ] Incluir `ffmpeg`, `ffprobe` y `rubberband` (≥ 3, motor R3) sin depender de Homebrew: ver `arquitectura.md` → "Binarios nativos dentro del `.dmg`"
 - [ ] Letras a proyector (iglesia)
 - [ ] Luces por MIDI/DMX
 - [ ] Pendiente (amigo): mover niveles de parámetros de plugins en la consola Apollo desde el show. Investigar qué permite controlar la consola por MIDI (la documentación de UAD solo menciona tap tempo).

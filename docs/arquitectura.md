@@ -76,7 +76,9 @@ Entrada: ZIP, RAR o carpeta con WAV, MP3, M4A, FLAC o AIFF.
   de picos. Ajuste opcional por canción ("balada −2 dB").
 - **Click y guía** se normalizan aparte a un nivel fijo.
 - **Cambio de tono** (máx. ±2–3 semitonos en la práctica) solo en stems armónicos y
-  voces; nunca en click, guía ni percusión. Procesado offline (Rubber Band).
+  voces; nunca en click, guía ni percusión. Procesado offline con Rubber Band v3+ y su
+  motor R3 ("finer"), la máxima calidad de la librería. No se usa el filtro de ffmpeg:
+  solo ofrece el motor R2 y siempre trabaja en modo tiempo real.
 - **Matriz de partes**: para cada instrumento con varios stems (EG 1–4, keys…) se
   imprimen dos archivos: `<rol> en vivo` (lo que cubre el músico, sección por
   sección) y `<rol> secuencia` (el resto). Si un músico falla, se desmutea
@@ -220,3 +222,42 @@ importación de PDF a texto, resaltar el compás actual (etapa posterior).
   clic derecho → Abrir (documentarlo con capturas).
 - Licencias: no se vende, así que componentes GPL (Rubber Band) son aceptables
   para uso privado.
+
+### Binarios nativos dentro del `.dmg`
+
+El motor llama a programas externos; en la Mac de desarrollo vienen de Homebrew, pero
+los usuarios no tienen Homebrew. Todos van dentro de la app (`Contents/Resources/bin/`
+o junto al sidecar) y el sidecar los encuentra por ruta, no por el PATH.
+
+| Binario | Para qué | Cómo lo encuentra el motor | Versión mínima |
+|---|---|---|---|
+| `ffmpeg`, `ffprobe` | Decodificar MP3/AAC/WAV/FLAC (respeta gapless y *priming*), re-muestrear, medir | PATH (pendiente: variable como la de Rubber Band) | La que pasa las pruebas; ya **no** necesita `--enable-librubberband` |
+| `rubberband` | Cambio de tono, motor R3 ("finer") en modo offline (`transpose.py`) | `SONARSTAGE_RUBBERBAND` (ruta absoluta) o el PATH | **3.0** (R3); hoy 4.0.0 |
+| `bsdtar` | Abrir paquetes RAR | Viene con macOS | — |
+
+Al armar el paquete, para `rubberband`:
+
+1. **No copiar el binario de Homebrew tal cual.** Enlaza librerías dinámicas en
+   `/opt/homebrew/...` (revisar con `otool -L $(which rubberband)`: libsndfile,
+   libsamplerate, etc.) que no existen en la Mac del usuario. Opciones:
+   - Compilarlo desde el código fuente (`github.com/breakfastquay/rubberband`, tag de la
+     última versión) con FFT de Accelerate (vDSP) y re-muestreador interno, y libsndfile
+     estático. Alternativa probada en Linux: `single/RubberBandSingle.cpp` + `main/main.cpp`
+     compilados juntos, enlazando solo libsndfile.
+   - O copiar el binario con sus `.dylib` y reescribir las rutas (`dylibbundler` o
+     `install_name_tool` a `@executable_path/../lib`).
+   - Al final, `otool -L` solo debe mostrar librerías del sistema (`/usr/lib`,
+     `/System/...`) o rutas `@executable_path`/`@rpath`.
+2. **arm64** (M1 y M4). Universal (`lipo`) solo si algún día hay Macs Intel.
+3. **Firma ad hoc**: en Apple Silicon un binario sin firmar no se ejecuta.
+   `codesign --force -s - <binario>` (y cada `.dylib`), luego firmar la app. Revisar que la
+   cuarentena del `.dmg` no bloquee el binario interno al primer arranque.
+4. El sidecar define `SONARSTAGE_RUBBERBAND` con la ruta absoluta del binario incluido
+   antes de llamar al motor, para no depender del PATH (que en una app abierta desde
+   Finder no incluye `/opt/homebrew/bin`).
+5. **Verificar en una Mac sin Homebrew** (la MacBook Air M1 del amigo sirve):
+   `rubberband --version` ≥ 3.0, y correr `pytest tests/test_transpose.py`
+   (`test_uses_the_r3_engine_offline` falla si el binario no tiene R3).
+6. **Licencia**: Rubber Band es GPL-2.0+. Incluir su `COPYING` en la app y tener a mano
+   el código fuente de la versión incluida. Al actualizar la versión, repetir el A/B de
+   `material/comparacion-motor/` y la medición de desfase (`measure_offset_samples`).

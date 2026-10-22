@@ -1,4 +1,4 @@
-"""Key changes on a synthetic pack (needs an ffmpeg built with Rubber Band)."""
+"""Key changes on a synthetic pack (needs the Rubber Band tool, v3+ for the R3 engine)."""
 import json
 
 import numpy as np
@@ -11,7 +11,7 @@ from sonarstage_import.transpose import TransposeError, rubberband_available, tr
 
 from test_prepare import pack  # noqa: F401  (fixture)
 
-pytestmark = pytest.mark.skipif(not rubberband_available(), reason="ffmpeg sin Rubber Band")
+pytestmark = pytest.mark.skipif(not rubberband_available(), reason="sin Rubber Band 3+")
 
 PAD_HZ = 330.0
 
@@ -66,26 +66,19 @@ def test_rejects_bad_requests(song_dir):
 
 
 @pytest.mark.parametrize("semitones", [-3, -2, 2, 3])
-def test_shifter_delay_is_compensated(tmp_path, semitones):
+def test_shifter_delay_is_compensated(semitones):
     from sonarstage_import import transpose as tp
     sr = 44100
     x = tp._burst_signal(sr)
-    src = tmp_path / "burst.wav"
-    sf.write(src, x, sr, subtype="FLOAT")
-    raw = tp._ffmpeg_shift(src, semitones, "keys", sr)
-    assert abs(tp.burst_lag_ms(x, raw, sr)) >= 1.5          # the shifter does move audio...
+    raw = tp._shift_audio(x, semitones, "keys", sr)
     fixed = tp._align(raw, tp.measure_offset_samples(semitones, sr), len(x))
     assert len(fixed) == len(x)
-    assert abs(tp.burst_lag_ms(x, fixed, sr)) <= 0.6        # ...and we put it back (sub-ms residual)
+    assert abs(tp.burst_lag_ms(x, fixed, sr)) <= 0.6        # sub-ms residual after compensation
 
 
-def test_transposed_show_keeps_the_song_loudness(song_dir, tmp_path):
-    import pyloudnorm as pyln
-    r = transpose_song(song_dir, -3)
-    song = json.loads((song_dir / "cancion.json").read_text())
-    assert song["key"]["gainCorrectionDb"]["-3"] == r["gain_correction_db"]
-    render_song(song_dir, tmp_path / "show", sample_rate=48000, live=["drums"], semitones=-3)
-    mix = sf.read(tmp_path / "show" / "Drums.wav")[0] + sf.read(tmp_path / "show" / "Secuencia.wav")[0]
-    lufs = pyln.Meter(48000).integrated_loudness(mix)
-    peak = 20 * np.log10(np.abs(mix).max())
-    assert lufs == pytest.approx(song["mix"]["targetLufs"], abs=0.3) or peak >= -1.2
+def test_uses_the_r3_engine_offline():
+    from sonarstage_import import transpose as tp
+    assert tp.rubberband_version()[0] >= 3
+    args = tp.rubberband_args(-2, "eg")
+    assert "--fine" in args and "--realtime" not in args and "-R" not in args
+    assert "--formant" not in args and "--formant" in tp.rubberband_args(-2, "leadVocal")

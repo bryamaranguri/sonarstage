@@ -3,20 +3,27 @@
     python -m sonarstage_import.transpose <song folder> --semitones -2
 
 Only harmonic stems change key (bass, guitars, keys, pads, strings, vocals, FX).
-Click, guide, drums and percussion stay as they are. Pitch shifting uses Rubber Band
-through ffmpeg, offline and at its highest quality, keeping the length sample-exact.
-Vocals keep their formants so they do not sound "chipmunk" or "giant".
+Click, guide, drums and percussion stay as they are. Pitch shifting uses the Rubber
+Band command-line tool (v3 or newer) with its R3 "finer" engine in offline mode: the
+whole file is studied before processing, which gives the library's highest quality.
+ffmpeg's rubberband filter is not used because it only offers the older R2 engine and
+always runs in real-time mode. Vocals keep their formants so they do not sound
+"chipmunk" or "giant". Stereo stems use centre focus (keeps mono compatibility).
+
+The tool is found through $SONARSTAGE_RUBBERBAND or the PATH (on the Mac,
+`brew install rubberband`; the app bundles it next to ffmpeg).
 
 Output: <song>/preparada/<n>/<label>.flac (24-bit, source sample rate, no gain: the
 recipe in cancion.json still applies at render time).
 
-Timing: Rubber Band (as used by ffmpeg) shifts audio by ~1.7 ms per semitone (late when
-going down, early when going up) and trims ~10 ms at the end. That offset is
-deterministic, so it is measured once per song on a synthetic tone-burst signal with
-the same settings and compensated in every stem; the length is restored exactly.
+Timing: offline mode already compensates the shifter's latency, but any residual
+offset is measured once per song on a synthetic tone-burst signal with the same
+settings and compensated in every stem; the length is restored exactly.
 """
 import argparse
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -40,23 +47,49 @@ class TransposeError(Exception):
     pass
 
 
+MIN_RUBBERBAND_MAJOR = 3    # R3 ("finer") engine
+
+
+def rubberband_tool():
+    """Path of the rubberband command-line tool, or None."""
+    return os.environ.get("SONARSTAGE_RUBBERBAND") or shutil.which("rubberband")
+
+
+def rubberband_version():
+    tool = rubberband_tool()
+    if not tool:
+        return None
+    try:
+        out = subprocess.run([tool, "--version"], capture_output=True, text=True, timeout=10)
+    except OSError:
+        return None
+    m = re.search(r"(\d+)\.(\d+)\.(\d+)", out.stdout + out.stderr)
+    return tuple(int(g) for g in m.groups()) if m else None
+
+
 def rubberband_available():
-    out = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
-    return " rubberband " in out
+    v = rubberband_version()
+    return v is not None and v[0] >= MIN_RUBBERBAND_MAJOR
 
 
-def pitch_filter(semitones, role):
-    ratio = 2 ** (semitones / 12)
-    formant = "preserved" if role in FORMANT_PRESERVED else "shifted"
-    return f"rubberband=pitch={ratio:.10f}:pitchq=quality:channels=together:formant={formant}"
+def rubberband_args(semitones, role):
+    args = ["--fine", "--pitch", str(semitones), "--centre-focus", "--ignore-clipping", "--quiet"]
+    if role in FORMANT_PRESERVED:
+        args.append("--formant")
+    return args
 
 
-def _ffmpeg_shift(src, semitones, role, sample_rate):
-    """Pitch-shift a file and return float32 audio (frames, 2)."""
-    cmd = ["ffmpeg", "-v", "error", "-i", str(src), "-af", pitch_filter(semitones, role),
-           "-f", "f32le", "-ac", "2", "-ar", str(sample_rate), "-"]
-    raw = subprocess.run(cmd, capture_output=True, check=True).stdout
-    return np.frombuffer(raw, dtype=np.float32).reshape(-1, 2)
+def _shift_audio(x, semitones, role, sample_rate):
+    """Pitch-shift float32 audio (frames, 2) offline with the R3 engine; returns float32 (frames, 2)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        src, dst = os.path.join(tmp, "in.wav"), os.path.join(tmp, "out.wav")
+        sf.write(src, x, sample_rate, subtype="FLOAT")
+        subprocess.run([rubberband_tool(), *rubberband_args(semitones, role), src, dst],
+                       capture_output=True, check=True)
+        y, sr = sf.read(dst, dtype="float32", always_2d=True)
+    if sr != sample_rate or y.shape[1] != 2:
+        raise TransposeError("Rubber Band devolvió un formato inesperado.")
+    return y
 
 
 def _burst_signal(sample_rate, seconds=12):
@@ -82,9 +115,7 @@ def _envelope(x, sample_rate, hop_s=0.0001):
 def measure_offset_samples(semitones, sample_rate):
     """Delay (in samples, positive = late) that the pitch shifter adds at these settings."""
     x = _burst_signal(sample_rate)
-    with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-        sf.write(tmp.name, x, sample_rate, subtype="FLOAT")
-        y = _ffmpeg_shift(tmp.name, semitones, "keys", sample_rate)
+    y = _shift_audio(x, semitones, "keys", sample_rate)
     return int(round(burst_lag_ms(x, y, sample_rate) / 1000 * sample_rate))
 
 
@@ -111,8 +142,9 @@ def _align(y, offset, length):
 
 
 def _shift_one(src, dst, semitones, role, sample_rate, offset):
-    length = len(decode(src, sample_rate))
-    y = _align(_ffmpeg_shift(src, semitones, role, sample_rate), offset, length)
+    x = decode(src, sample_rate)          # ffmpeg decode: honours MP3/AAC encoder delay
+    y = _align(_shift_audio(x, semitones, role, sample_rate), offset, len(x))
+    length = len(x)
     sf.write(str(dst), y, sample_rate, subtype="PCM_24", format="FLAC")
     if sf.info(str(dst)).frames != length:
         raise TransposeError(f"{dst.name}: la duración no coincide con el original.")
@@ -147,7 +179,7 @@ def transpose_song(song_dir, semitones, workers=4):
     if abs(semitones) > MAX_SEMITONES:
         raise TransposeError(f"Máximo ±{MAX_SEMITONES} semitonos.")
     if not rubberband_available():
-        raise TransposeError("Este ffmpeg no incluye Rubber Band (cambio de tono).")
+        raise TransposeError("Falta Rubber Band 3 o más reciente (motor R3) para cambiar el tono.")
     song = json.loads((song_dir / "cancion.json").read_text())
     out_dir = song_dir / "preparada" / f"{semitones:+d}"
     if out_dir.exists():

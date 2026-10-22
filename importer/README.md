@@ -43,7 +43,8 @@ python -m pytest tests                 # pruebas que no necesitan audio
 
 Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
 
-El cambio de tono necesita un ffmpeg compilado con Rubber Band (el de Homebrew lo trae).
+El cambio de tono necesita la herramienta `rubberband` v3 o más reciente (motor R3), en el
+PATH o indicada con `SONARSTAGE_RUBBERBAND`. La app la incluye junto a ffmpeg.
 
 ### Preparar la Mac (desarrollo)
 
@@ -51,7 +52,8 @@ El cambio de tono necesita un ffmpeg compilado con Rubber Band (el de Homebrew l
 cd ~/Ing/01-proj/sonar-stage/sonarstage/importer
 python3 -m venv .venv && source .venv/bin/activate   # Python 3.9 o más reciente
 pip install -r requirements.txt
-which ffmpeg || brew install ffmpeg      # el de Homebrew trae Rubber Band (cambio de tono)
+which ffmpeg || brew install ffmpeg
+brew install rubberband                  # cambio de tono, motor R3 (rubberband --version ≥ 3)
 ```
 
 Nombres de sección (la primera vez descarga el modelo `small`, ~470 MB):

@@ -86,27 +86,43 @@ def bar_time(song, bar):
 
 
 def propose(song, words, window_bars=2):
-    """For each section: the words heard in the bars before it and the proposed name."""
+    """For each section: the words heard in the bars before it and the proposed name.
+
+    Without a section word, two fallbacks (marked in `how`):
+    - the first section after the count-in is the intro ("after-count");
+    - any later one continues the previous section ("continues"): the guide only gave a
+      dynamics cue there, e.g. "toda la banda" or "drums in".
+    """
     out = []
     for i, sec in enumerate(song["sections"]):
         if i == 0:
             out.append({"index": 1, "startBar": sec["startBar"], "old": sec["name"], "heard": "",
-                        "name": sec["name"], "kind": sec.get("kind", "other")})
+                        "name": sec["name"], "kind": sec.get("kind", "other"), "how": "count"})
             continue
         end = bar_time(song, sec["startBar"])
         start = bar_time(song, max(1, sec["startBar"] - window_bars)) - 0.25
         heard = " ".join(w for a, b, w in words if start <= a < end)
         found = name_from_words(heard)
+        if found:
+            how = "guide"
+        elif i == 1:
+            found, how = ("Intro", "intro"), "after-count"
+        elif out[-1]["how"] != "none":
+            found, how = (out[-1]["name"], out[-1]["kind"]), "continues"
+        else:
+            how = "none"
         out.append({"index": i + 1, "startBar": sec["startBar"], "old": sec["name"], "heard": heard,
                     "name": found[0] if found else sec["name"], "kind": found[1] if found else sec.get("kind", "other"),
-                    "matched": bool(found)})
+                    "matched": bool(found), "how": how})
     return out
 
 
 def apply(song_path, song, proposal):
     for sec, p in zip(song["sections"], proposal):
         if p.get("matched"):
-            sec["name"], sec["kind"], sec["guide"] = p["name"], p["kind"], p["heard"]
+            sec["name"], sec["kind"] = p["name"], p["kind"]
+            if p["heard"]:
+                sec["guide"] = p["heard"]
     song_path.write_text(json.dumps(song, indent=1, ensure_ascii=False))
 
 
@@ -131,7 +147,8 @@ def main(argv=None):
     print(f"{song['title']} — guía en «{lang}», {len(words)} palabras")
     print(f"{'#':>3} {'compás':>6}  {'antes':12} {'nuevo':14} escuchado")
     for p in proposal:
-        mark = "" if p.get("matched", True) else "  (sin cambio)"
+        mark = {"none": "  (sin cambio)", "after-count": "  (tras la cuenta)",
+                "continues": "  (continúa la anterior)"}.get(p["how"], "")
         print(f"{p['index']:>3} {p['startBar']:>6}  {p['old'][:12]:12} {p['name'][:14]:14} {p['heard'][:60]}{mark}")
     if args.apply:
         apply(song_path, song, proposal)

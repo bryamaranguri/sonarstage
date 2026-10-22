@@ -138,6 +138,13 @@ En vivo: Drums, Bass, EG 1 (como en la plantilla de Bryam).
 Rubber Band vía ffmpeg, máxima calidad, solo en stems armónicos (formantes preservados
 en voces). Click, guía, batería y percusión no cambian.
 
+> **Actualización (21/10/2026):** el filtro de ffmpeg usaba el motor R2 en modo tiempo
+> real. Ahora `transpose` llama a la herramienta `rubberband` (v4.0.0) con el motor R3
+> en modo offline. En EG 1 de Holy Forever a −2, R2 bajaba 1.2 LU respecto al original
+> y R3 baja 0.6 LU (pierde menos brillo). En una prueba A/B con Ableton
+> (Complex Pro), la versión R2 ya sonaba prácticamente igual. Las versiones de esta
+> tabla se hicieron con R2.
+
 | Canción | Tono | Stems transpuestos | Tono medido | Tiempo | Volumen del show |
 |---|---|---|---|---|---|
 | Holy Forever | −2 | 13 de 18 | −1.98 st | 49 s | −18.6 LUFS (limitado por pico) |
@@ -198,3 +205,27 @@ por vez (cargar todos a la vez agotó 3 GB).
   `status`, `play`, `repeat`, `release` y `goto`.
 - Live recrea los scripts al abrir un documento: el script se instancia de nuevo y vuelve
   a abrir el puerto sin conflicto.
+
+## Nombres de sección desde la guía (21 de octubre)
+
+Whisper `small` (faster-whisper, CPU, int8), sin internet una vez descargado el modelo
+(464 MB). Unos 6 s por canción.
+
+| Canción | Idioma detectado | Secciones | Nombradas por la guía | Por regla |
+|---|---|---|---|---|
+| Holy Forever | inglés | 15 | 15 | 0 |
+| Alegras mis días | español | 23 | 21 | 2 |
+
+- La guía anuncia la sección en los 2 compases previos; la cuenta ("one, two…") se
+  descarta, también cuando va pegada al nombre ("Chorus two three four" es "Coro").
+- Dos reglas para lo que la guía no nombra:
+  - la sección que sigue a la cuenta es la **Intro** (Alegras: la guía solo cuenta);
+  - un aviso solo de dinámica ("toda la banda", "drums in") **continúa** la sección
+    anterior (Alegras, compás 129: "Coro").
+- La guía repite nombres ("Verso", "Verso"; "Coro 2", "Coro 2"). Se dejan así: el
+  puente salta al **próximo** con ese nombre.
+- Errores de transcripción en palabras que no son nombres ("Paje la intensidad" por
+  "baja"). Agregar esas frases al vocabulario inicial empeoró otra ("Chorus 2" pasó a
+  "course two"), así que el vocabulario se dejó solo con nombres de sección.
+- Los avisos de dinámica se guardan en `guide` de cada sección: sirven para la
+  pantalla de revisión y, más adelante, para la guía inteligente.
