@@ -6,3 +6,4 @@ pyloudnorm>=0.1.1
 soundfile>=0.12
 jsonschema>=4
 faster-whisper>=1.0  # nombres de sección desde la guía (label.py); descarga el modelo la primera vez
+sounddevice>=0.4   # micrófono para el control por voz (incluye PortAudio en Mac)

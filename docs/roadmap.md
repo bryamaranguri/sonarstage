@@ -24,7 +24,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Loops y saltos cuantizados, extender sección (en el núcleo del puente)
 - [ ] Guía inteligente
 - [ ] Mute/desmute instantáneo de pistas en vivo
-- [ ] Control por voz (offline, palabra de activación, confirmación en el click)
+- [ ] Control por voz (offline, palabra de activación, confirmación en el click) — *listo en Terminal con confirmación en la barra de estado de Live; falta probarlo con el micrófono real y la confirmación audible*
 - [ ] Pedal MIDI
 
 ## Fase 3 — Cifrados

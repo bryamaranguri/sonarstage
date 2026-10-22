@@ -40,6 +40,9 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `ableton` | Escribe el `.als` clonando pistas y clips de la plantilla del usuario |
 | `midi` | Cambios MIDI por sección (presets, snapshots, CC) y pistas de tap tempo |
 | `show` | Preparar show: renderiza cada canción y genera el proyecto de Ableton |
+| `voice` | Control por voz: micrófono → frases → comandos para SonarStage Link |
+| `voice_commands` | Vocabulario cerrado: qué frase es qué comando |
+| `link_client` | Cliente TCP de SonarStage Link |
 
 Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
 
@@ -62,3 +65,16 @@ Nombres de sección (la primera vez descarga el modelo `small`, ~470 MB):
 python -m sonarstage_import.label "../../material/biblioteca/Holy Forever" --model-dir ../../material/modelos
 python -m sonarstage_import.label "../../material/biblioteca/Holy Forever" --model-dir ../../material/modelos --apply
 ```
+
+Control por voz (Ableton abierto con SonarStage Link; el modelo es el mismo de `label`):
+
+```bash
+python -m sonarstage_import.voice --devices                      # entradas de audio disponibles
+python -m sonarstage_import.voice --device "<interfaz>" --channel 2 --model-dir ../../material/modelos --dry-run
+python -m sonarstage_import.voice --device "<interfaz>" --channel 2 --model-dir ../../material/modelos
+```
+
+Siempre empieza con la palabra de activación: «Secuencia, repetimos el coro», «Secuencia,
+vamos al puente», «Secuencia, siguiente», «Secuencia, seguimos», «Secuencia, cancela»,
+«Secuencia, siguiente canción», «Secuencia, silencia la guitarra» / «activa la guitarra»,
+«Secuencia, dale» / «para». Lo que se ejecuta aparece en la barra de estado de Live.

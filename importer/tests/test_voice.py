@@ -1,0 +1,133 @@
+"""Voice control: phrases -> commands, utterance cutting, and the loop (Whisper faked)."""
+import numpy as np
+import pytest
+
+from sonarstage_import.voice import Context, Segmenter, listen
+from sonarstage_import.voice_commands import parse
+
+SECTIONS = ["Intro", "Verso 1", "Pre coro", "Coro 1", "Verso 2", "Coro 2", "Instrumental", "Puente", "Final"]
+TRACKS = ["Click", "Guía", "Batería", "Bajo", "Guitarra eléctrica", "Secuencia"]
+SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
+
+
+@pytest.mark.parametrize("said,commands", [
+    ("Secuencia, repetimos el coro.", [{"cmd": "repeat"}]),                 # we are in the chorus
+    ("Secuencia, otra vez", [{"cmd": "repeat"}]),
+    ("Secuencia, una vez más", [{"cmd": "repeat"}]),
+    ("Secuencia, repetimos el puente", [{"cmd": "goto", "section": "Puente"}]),   # elsewhere: go there
+    ("Secuencia, vamos al puente", [{"cmd": "goto", "section": "Puente"}]),
+    ("Secuencia, al verso dos", [{"cmd": "goto", "section": "Verso 2"}]),
+    ("Secuencia, vamos al verso", [{"cmd": "goto", "section": "verso"}]),   # the bridge picks the next one
+    ("Secuencias, vamos al pre-coro", [{"cmd": "goto", "section": "Pre coro"}]),
+    ("Secuencia, chorus", [{"cmd": "goto", "section": "coro"}]),
+    ("Secuencia, ¡Perso!", [{"cmd": "goto", "section": "verso"}]),          # Whisper's take on "Verso"
+    ("Secuencia, instrumentar", [{"cmd": "goto", "section": "Instrumental"}]),
+    ("Secuencia, empezamos desde el coro", [{"cmd": "goto", "section": "coro"}, {"cmd": "play"}]),
+    ("Secuencia, siguiente", [{"cmd": "next_section"}]),
+    ("Secuencia, seguimos", [{"cmd": "release"}]),
+    ("Secuencia, cancela", [{"cmd": "cancel"}]),
+    ("Secuencia, para", [{"cmd": "stop"}]),
+    ("Secuencia, dale", [{"cmd": "play"}]),
+    ("Secuencia, siguiente canción", [{"cmd": "next_song"}]),
+    ("Secuencia, canción tres", [{"cmd": "song", "number": 3}]),
+    ("Secuencia, Alegras mis días", [{"cmd": "song", "number": 2}]),
+    ("Secuencia, silencia la guitarra", [{"cmd": "mute", "track": "Guitarra eléctrica", "on": True}]),
+    ("Secuencia, activa el bajo", [{"cmd": "mute", "track": "Bajo", "on": False}]),
+    ("Secuencia, quita la guía", [{"cmd": "mute", "track": "Guía", "on": True}]),
+])
+def test_phrases(said, commands):
+    result = parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1")
+    assert result is not None and result[1] == commands
+
+
+@pytest.mark.parametrize("said", [
+    "Vamos al coro",                                # no wake word
+    "Hay fiesta, hay vida, secuencia del coro",     # wake word not at the start (a lyric)
+    "Secuencia",                                    # nothing after it
+    "Secuencia, qué bonito",                        # nothing we know
+    "Secuencia, silencia el violín",                # no such track
+])
+def test_ignored(said):
+    assert parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1") is None
+
+
+def test_para_stops_only_as_the_first_word():
+    assert parse("Secuencia, vamos para el coro", SECTIONS)[1] == [{"cmd": "goto", "section": "coro"}]
+
+
+def test_without_wake_word_for_tests():
+    assert parse("Puente", SECTIONS, wake_words=())[1] == [{"cmd": "goto", "section": "Puente"}]
+
+
+SR = 16000
+
+
+def tone(seconds, db):
+    t = np.arange(int(SR * seconds)) / SR
+    return (10 ** (db / 20) * np.sqrt(2) * np.sin(2 * np.pi * 300 * t)).astype(np.float32)
+
+
+def noise(seconds, db, seed=0):
+    return (10 ** (db / 20) * np.random.default_rng(seed).standard_normal(int(SR * seconds))).astype(np.float32)
+
+
+def test_segmenter_cuts_speech_over_bleed():
+    # stage bleed at -45 dB, two "phrases" at -20 dB
+    stream = np.concatenate([noise(3, -45), noise(1.0, -45, 1) + tone(1.0, -20), noise(2, -45, 2),
+                             noise(1.5, -45, 3) + tone(1.5, -20), noise(2, -45, 4)])
+    seg = Segmenter(SR)
+    found = []
+    for i in range(0, len(stream), 800):
+        found += seg.feed(stream[i:i + 800])
+    assert len(found) == 2
+    (s1, a1), (s2, a2) = found
+    assert s1 == pytest.approx(3.0 - 0.3, abs=0.1)              # with 300 ms before it
+    assert len(a1) / SR == pytest.approx(1.0 + 0.3 + 0.6, abs=0.15)   # + 600 ms after
+    assert s2 == pytest.approx(6.0 - 0.3, abs=0.1)
+
+
+def test_segmenter_caps_long_sounds():
+    seg = Segmenter(SR, max_s=2.0)
+    found = seg.feed(np.concatenate([noise(1, -60), tone(5, -10), noise(1, -60)]))
+    assert len(found) >= 2 and all(len(a) <= 2.05 * SR for _, a in found)
+
+
+def test_listen_sends_commands_and_reports_them():
+    stream = [np.concatenate([noise(1, -60), tone(1, -20), noise(1, -60)])]
+    sent, lines = [], []
+
+    def send(msg):
+        sent.append(msg)
+        return {"ok": True}
+
+    ctx = Context(SECTIONS, TRACKS, SONGS, current="Verso 1")
+    listen(iter(stream), SR, lambda audio, prompt: "Secuencia, vamos al coro", lambda: ctx, send=send,
+           out=lines.append)
+    assert sent == [{"cmd": "goto", "section": "coro"}, {"cmd": "message", "text": "Voz: Ir a Coro"}]
+    assert "✓" in lines[0]
+
+
+def test_listen_dry_run_and_errors():
+    stream = [np.concatenate([noise(1, -60), tone(1, -20), noise(1, -60)])]
+    sent, lines = [], []
+    listen(iter(stream), SR, lambda a, p: "Secuencia, siguiente", lambda: Context(), dry_run=True,
+           send=sent.append, out=lines.append)
+    assert sent == [] and "sin enviar" in lines[0]
+
+    def refuse(msg):
+        sent.append(msg)
+        return {"ok": False, "error": "no hay más secciones"} if msg["cmd"] != "message" else {"ok": True}
+
+    listen(iter(stream), SR, lambda a, p: "Secuencia, siguiente", lambda: Context(), send=refuse,
+           out=lines.append)
+    assert sent[-1] == {"cmd": "message", "text": "Voz: Siguiente sección — no hay más secciones"}
+
+
+def test_listen_resamples_interface_rate():
+    sr = 48000
+    t = np.arange(sr) / sr
+    loud = (0.1 * np.sin(2 * np.pi * 300 * t)).astype(np.float32)
+    stream = [np.concatenate([np.zeros(sr, np.float32) + 1e-4, loud, np.zeros(sr, np.float32) + 1e-4])]
+    seen = []
+    listen(iter(stream), sr, lambda a, p: seen.append(len(a)) or "", lambda: Context(), out=lambda s: None)
+    assert seen and seen[0] / 16000 == pytest.approx(1.9, abs=0.15)

@@ -177,3 +177,28 @@ def test_repeated_names_go_to_the_next_one():
     song.current_song_time = 74                       # in "Puente": no chorus after it
     core.handle({"cmd": "goto", "section": "coro"})
     assert song.current_song_time == 24               # back to the first one
+
+
+def test_section_word_without_number_finds_numbered_sections():
+    cues = [("1. Canción", 0), ("Verso 1", 8), ("Coro 1", 24), ("Verso 2", 40), ("Coro 2", 56)]
+    song = FakeSong(cues)
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    song.current_song_time = 10
+    core.handle({"cmd": "goto", "section": "Coro"})
+    assert song.current_song_time == 24
+    core.handle({"cmd": "goto", "section": "coro"})
+    assert song.current_song_time == 56               # the next one, as with repeated names
+    core.handle({"cmd": "goto", "section": "Verso 1"})  # an exact name still wins
+    assert song.current_song_time == 8
+
+
+def test_setlist_and_message(setup):
+    core, song = setup
+    shown = []
+    core.notify = shown.append
+    r = core.handle({"cmd": "setlist"})
+    assert r["setlist"] == [
+        {"number": 1, "title": "Holy Forever", "sections": ["Sección 1", "Sección 2", "Sección 3"]},
+        {"number": 2, "title": "Alegras mis días", "sections": ["Sección 1", "Sección 2"]}]
+    assert r["tracks"] == ["Click", "Bajo", "Secuencia"]
+    assert core.handle({"cmd": "message", "text": "Voz: repetir"})["ok"] and shown == ["Voz: repetir"]

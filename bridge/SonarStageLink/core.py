@@ -19,6 +19,12 @@ deciding when:
 import re
 
 SONG_LOCATOR = re.compile(r"^\s*(\d+)\.\s+(.+)$")
+TRAILING_NUMBER = re.compile(r"\s+\d+$")
+
+
+def base_name(name):
+    """'Coro 2' -> 'coro': the section word without its number."""
+    return TRAILING_NUMBER.sub("", name.strip().lower())
 
 
 class Section(object):
@@ -33,10 +39,11 @@ class Section(object):
 
 
 class LinkCore(object):
-    def __init__(self, song, bar_quantization=None, log=None):
+    def __init__(self, song, bar_quantization=None, log=None, notify=None):
         self.song = song
         self.bar_quantization = bar_quantization      # Live.Song.Quantization.q_bar inside Live
         self.log = log or (lambda msg: None)
+        self.notify = notify or (lambda msg: None)    # Live's status bar
         self.pending = None                           # Section to jump to
         self.autostop = True
         self._last_beat = None
@@ -76,10 +83,13 @@ class LinkCore(object):
 
     def find_section(self, name, within_song=None, after=None):
         """Section by name. Names repeat ("Coro" several times): the first one after `after`
-        (the current position) wins, else the first one in the song."""
+        (the current position) wins, else the first one in the song. Without an exact
+        match, "Coro" also finds "Coro 1" and "Coro 2"."""
         key = name.strip().lower()
-        matches = [s for s in self.sections if s.name.lower() == key
-                   and (within_song is None or s.song_index == within_song)]
+        pool = [s for s in self.sections if within_song is None or s.song_index == within_song]
+        matches = [s for s in pool if s.name.lower() == key]
+        if not matches:
+            matches = [s for s in pool if base_name(s.name) == key]
         if not matches:
             return None
         if after is not None:
@@ -87,6 +97,15 @@ class LinkCore(object):
             if later:
                 return later[0]
         return matches[0]
+
+    def setlist(self):
+        songs = []
+        for s in self.sections:
+            if s.is_song_start or not songs:
+                songs.append({"number": s.song_index, "title": s.song_title, "sections": []})
+            if not s.is_song_start:
+                songs[-1]["sections"].append(s.name)
+        return songs
 
     # --- commands ----------------------------------------------------------------------
 
@@ -120,6 +139,11 @@ class LinkCore(object):
                 self._mute(msg["track"], bool(msg.get("on", True)))
             elif cmd == "autostop":
                 self.autostop = bool(msg.get("on", True))
+            elif cmd == "setlist":
+                return {"ok": True, "setlist": self.setlist(),
+                        "tracks": [t.name for t in self.song.tracks], "state": self.state()}
+            elif cmd == "message":
+                self.notify(str(msg.get("text", ""))[:120])
             else:
                 return {"ok": False, "error": "comando desconocido: %s" % cmd, "state": self.state()}
         except Exception as e:      # never let a bad message break the show

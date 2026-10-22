@@ -229,3 +229,22 @@ Whisper `small` (faster-whisper, CPU, int8), sin internet una vez descargado el 
   "course two"), así que el vocabulario se dejó solo con nombres de sección.
 - Los avisos de dinámica se guardan en `guide` de cada sección: sirven para la
   pantalla de revisión y, más adelante, para la guía inteligente.
+
+## Control por voz, primeras pruebas sin micrófono (21 de octubre)
+
+Mismo modelo `small`. Unos 0.9–1.1 s por frase en el entorno de pruebas (CPU); en la
+M4 Max debería ser menos. Como el puente espera el final de la sección, basta con
+decirlo unos tiempos antes.
+
+- **Whisper "oye" el vocabulario que se le da como pista** cuando solo hay música: con
+  una pista de vocabulario, la secuencia de *Alegras mis días* (sin voz hablada) produjo
+  «Intro, Verso, Pre coro, Coro 2» y tres veces «Siguiente». Por eso no se le da pista, y
+  la palabra de activación tiene que abrir la frase («Secuencia, …»): una letra cantada
+  que la contenga a la mitad no cuenta.
+- Sin pista, Whisper deforma algunas palabras de la guía («Perso» por «Verso»,
+  «Instrumentar»). Se aceptan parecidos en palabras de 5 letras o más.
+- Con las secuencias completas de las dos canciones como si fueran el micrófono: ningún
+  comando falso, aun sin palabra de activación.
+- La guía de *Alegras mis días* leída como si fuera el director (sin palabra de
+  activación): 19 de 23 avisos se convierten en el salto correcto; los otros son solo
+  dinámica («baja la intensidad») o la cuenta.

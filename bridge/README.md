@@ -46,7 +46,8 @@ python3 link.py autostop off           # no detenerse al llegar a la siguiente c
   tiempo 1, justo donde termina la sección. Detenido, salta de inmediato.
 - **Parada automática**: al llegar a la siguiente canción, se detiene y queda ubicado
   ahí; un *play* la empieza.
-- Los nombres de sección se buscan dentro de la canción actual.
+- Los nombres de sección se buscan dentro de la canción actual. Si se repiten, va al
+  próximo; «Coro» también encuentra «Coro 1» y «Coro 2».
 
 ## Protocolo
 
@@ -56,7 +57,8 @@ real el firewall descartaba las respuestas UDP hacia `python3`; por TCP la respu
 vuelve por la conexión que abrió el cliente. Comandos: `status`, `refresh`, `play`
 (`continue`), `stop`, `goto` (`section`, `any_song`), `next_section`, `repeat`,
 `release`, `cancel`, `song` (`number`), `next_song`, `mute` (`track`, `on`),
-`autostop` (`on`).
+`autostop` (`on`), `setlist` (canciones con sus secciones y nombres de pistas, para el
+control por voz) y `message` (`text`: lo muestra en la barra de estado de Live).
 
 `state`: `playing`, `beat`, `tempo`, `song`, `song_title`, `section`, `section_bar`,
 `section_bars`, `loop`, `pending`, `autostop`.

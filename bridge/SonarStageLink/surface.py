@@ -44,7 +44,8 @@ class SonarStageLink(ControlSurface):
     def __init__(self, c_instance):
         super(SonarStageLink, self).__init__(c_instance)
         self._live_song = self.song() if callable(self.song) else self.song
-        self.core = LinkCore(self._live_song, bar_quantization=Live.Song.Quantization.q_bar, log=_log)
+        self.core = LinkCore(self._live_song, bar_quantization=Live.Song.Quantization.q_bar, log=_log,
+                              notify=self.show_message)
         self._ticks = 0
         self._clients = []
         self._server = None
