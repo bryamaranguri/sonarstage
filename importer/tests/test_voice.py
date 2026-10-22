@@ -34,6 +34,10 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
     ("Secuencia, silencia la guitarra", [{"cmd": "mute", "track": "Guitarra eléctrica", "on": True}]),
     ("Secuencia, activa el bajo", [{"cmd": "mute", "track": "Bajo", "on": False}]),
     ("Secuencia, quita la guía", [{"cmd": "mute", "track": "Guía", "on": True}]),
+    # as Whisper wrote them with Bryam's mic
+    ("Seguencia, repetir el coro", [{"cmd": "repeat"}]),
+    ("Se cuesta, ir al final", [{"cmd": "goto", "section": "Final"}]),
+    ("Secuencia, Repedir con...", [{"cmd": "repeat"}]),
 ])
 def test_phrases(said, commands):
     result = parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1")
@@ -46,6 +50,8 @@ def test_phrases(said, commands):
     "Secuencia",                                    # nothing after it
     "Secuencia, qué bonito",                        # nothing we know
     "Secuencia, silencia el violín",                # no such track
+    "Su presencia, vamos al coro",                  # rhymes with the wake word
+    "Tu presencia es real, vamos al coro",
 ])
 def test_ignored(said):
     assert parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1") is None
@@ -131,3 +137,21 @@ def test_listen_resamples_interface_rate():
     seen = []
     listen(iter(stream), sr, lambda a, p: seen.append(len(a)) or "", lambda: Context(), out=lambda s: None)
     assert seen and seen[0] / 16000 == pytest.approx(1.9, abs=0.15)
+
+
+def test_wake_word_alone_then_the_order():
+    # "Secuencia." … pause … "ir al coro."  (two phrases, as people say it)
+    quiet = noise(1, -60)
+    stream = [np.concatenate([quiet, tone(0.8, -20), quiet, tone(1, -20), noise(6, -60, 5), tone(1, -20), quiet])]
+    said = iter(["Seguencia.", "ir al coro.", "ir al final"])
+    sent, lines = [], []
+
+    def send(msg):
+        sent.append(msg)
+        return {"ok": True}
+
+    listen(iter(stream), SR, lambda a, p: next(said), lambda: Context(SECTIONS, current="Verso 1"),
+           send=send, out=lines.append)
+    assert sent[0] == {"cmd": "goto", "section": "coro"}
+    assert "te escucho" in lines[0]
+    assert len([m for m in sent if m["cmd"] == "goto"]) == 1     # the third came too late: ignored

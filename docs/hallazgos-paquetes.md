@@ -248,3 +248,12 @@ decirlo unos tiempos antes.
 - La guía de *Alegras mis días* leída como si fuera el director (sin palabra de
   activación): 19 de 23 avisos se convierten en el salto correcto; los otros son solo
   dinámica («baja la intensidad») o la cuenta.
+
+### Primera prueba con el micrófono (SSL 2, entrada 1)
+
+- Unos 0.8 s por frase en la M4 Max.
+- **Se hace una pausa después de «Secuencia»**, así que llega como una frase sola. Ahora
+  «Secuencia» sola deja escuchando 4 s, y la siguiente frase es la orden.
+- Whisper escribió «Seguencia», «Se cuesta» y «Repedir». Se aceptan parecidos, pero la
+  palabra de activación tiene que empezar como «se…»: «presencia» rima y aparece en
+  muchas letras de adoración («Su presencia», «tu presencia»).

@@ -24,9 +24,10 @@ from pathlib import Path
 import numpy as np
 
 from . import link_client
-from .voice_commands import WAKE_WORDS, parse
+from .voice_commands import WAKE_WORDS, is_wake_only, parse
 
 SR = 16000
+ARMED_SECONDS = 4.0      # after a lone "Secuencia", the next phrase within this time is the order
 GROUPS = {"EN VIVO", "SECUENCIA", "CUES", "CONTROL"}
 # No initial prompt for Whisper: over music it "hears" the prompt itself (measured: section
 # names and "Siguiente" came out of a song with no speech). The words are common Spanish.
@@ -98,10 +99,11 @@ class Transcriber(object):
         self.language = language
 
     def __call__(self, audio_16k, prompt):
-        segments, _ = self.model.transcribe(audio_16k, language=self.language, beam_size=5,
-                                            initial_prompt=prompt, condition_on_previous_text=False,
-                                            without_timestamps=True, vad_filter=False)
-        kept = [s.text for s in segments if s.no_speech_prob < 0.6 and s.avg_logprob > -1.0]
+        with np.errstate(all="ignore"):     # numpy 2 + Apple Accelerate: spurious matmul warnings
+            segments, _ = self.model.transcribe(audio_16k, language=self.language, beam_size=5,
+                                                initial_prompt=prompt, condition_on_previous_text=False,
+                                                without_timestamps=True, vad_filter=False)
+            kept = [s.text for s in segments if s.no_speech_prob < 0.6 and s.avg_logprob > -1.0]
         return " ".join(kept).strip()
 
 
@@ -138,8 +140,10 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
     """Main loop. `blocks` yields mono float arrays at `sr`; `context` returns a Context."""
     seg = Segmenter(sr)
     up, down = SR // gcd(SR, sr), sr // gcd(SR, sr)
+    armed_until = None
     for block in blocks:
         for start, utt in seg.feed(block):
+            end = start + len(utt) / sr
             if sr != SR:
                 from scipy.signal import resample_poly
                 utt = resample_poly(utt, up, down).astype(np.float32)
@@ -149,8 +153,14 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
             ms = (time.monotonic() - t0) * 1000
             if not text:
                 continue
-            result = parse(text, ctx.sections, ctx.tracks, ctx.songs, ctx.current, wake_words)
             where = "%7.1f s" % start
+            if wake_words and is_wake_only(text, wake_words):
+                armed_until = end + ARMED_SECONDS
+                out("%s  «%s»  … te escucho" % (where, text))
+                continue
+            armed = armed_until is not None and start <= armed_until
+            armed_until = None
+            result = parse(text, ctx.sections, ctx.tracks, ctx.songs, ctx.current, () if armed else wake_words)
             if result is None:
                 out("%s  «%s»  (%d ms)" % (where, text, ms))
                 continue

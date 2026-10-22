@@ -79,14 +79,41 @@ def _contains(tokens, seq, fuzzy=False):
     return n > 0 and any(same(tokens[i:i + n], seq) for i in range(len(tokens) - n + 1))
 
 
+def _is_wake(word, wake_words, ratio=0.8):
+    """Close to the wake word and starting like it: "seguencia" yes, "presencia" no
+    (it rhymes, and "tu presencia" is all over worship lyrics)."""
+    return any(word[:2] == k[:2] and difflib.SequenceMatcher(None, word, k).ratio() >= ratio
+               for k in wake_words)
+
+
 def after_wake_word(tokens, wake_words=WAKE_WORDS, within=3):
     """Tokens after the wake word, or None if it was not said. It has to open the phrase
-    (first `within` words): a sung line that happens to contain it does not count."""
+    (first `within` words): a sung line that happens to contain it does not count.
+    Whisper sometimes splits it ("Se cuesta"), so two words together also count."""
     last = None
-    for i, w in enumerate(tokens[:within]):
-        if any(difflib.SequenceMatcher(None, w, k).ratio() >= 0.8 for k in wake_words):
+    for i in range(min(within, len(tokens))):
+        if _is_wake(tokens[i], wake_words):
             last = i
+        elif i + 1 < len(tokens) and _is_wake(tokens[i] + tokens[i + 1], wake_words, 0.7):
+            last = i + 1
     return None if last is None else tokens[last + 1:]
+
+
+def is_wake_only(text, wake_words=WAKE_WORDS):
+    """Just "Secuencia": the order comes in the next phrase (people pause after it)."""
+    rest = after_wake_word(normalize(text), wake_words)
+    return rest is not None and not rest
+
+
+def _has(tokens, vocabulary):
+    """A word of `vocabulary` was said; long ones may be a bit off ("repedir")."""
+    for w in tokens:
+        if w in vocabulary:
+            return True
+        if len(w) >= 6 and any(len(v) >= 6 and difflib.SequenceMatcher(None, w, v).ratio() >= 0.8
+                               for v in vocabulary):
+            return True
+    return False
 
 
 def find_section(tokens, sections):
@@ -134,13 +161,13 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
         return None
     words = set(tokens)
 
-    if words & CANCEL:
+    if _has(tokens, CANCEL):
         return "Cancelar", [{"cmd": "cancel"}]
     if tokens[0] in STOP:
         return "Parar", [{"cmd": "stop"}]
 
-    if words & SONG or ("next" in words and "song" in words):
-        if words & NEXT:
+    if _has(tokens, SONG) or ("next" in words and "song" in words):
+        if _has(tokens, NEXT):
             return "Siguiente canción", [{"cmd": "next_song"}]
         n = _number(tokens)
         if n is not None:
@@ -149,27 +176,27 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
         if len(normalize(title)) >= 2 and _contains(tokens, normalize(title)[:2]):
             return "Canción %d · %s" % (number, title), [{"cmd": "song", "number": number}]
 
-    if words & (MUTE | UNMUTE):
+    if _has(tokens, MUTE | UNMUTE):
         track = find_track(tokens, tracks)
         if track:
-            mute = bool(words & MUTE)
+            mute = bool(_has(tokens, MUTE))
             return ("Silenciar " if mute else "Activar ") + track, [{"cmd": "mute", "track": track, "on": mute}]
 
     section = find_section(tokens, sections)
-    repeat = bool(words & REPEAT) or _contains(tokens, ["otra", "vez"]) or _contains(tokens, ["de", "nuevo"]) \
+    repeat = bool(_has(tokens, REPEAT)) or _contains(tokens, ["otra", "vez"]) or _contains(tokens, ["de", "nuevo"]) \
         or _contains(tokens, ["vez", "mas"])
     if repeat and (section is None or _same_section(section, current)):
         return "Repetir" + (" " + current if current else ""), [{"cmd": "repeat"}]
     if section:
         shown = section[:1].upper() + section[1:]
-        if words & PLAY:
+        if _has(tokens, PLAY):
             return "Desde " + shown, [{"cmd": "goto", "section": section}, {"cmd": "play"}]
         return "Ir a " + shown, [{"cmd": "goto", "section": section}]
-    if words & RELEASE:
+    if _has(tokens, RELEASE):
         return "Seguir", [{"cmd": "release"}]
-    if words & NEXT:
+    if _has(tokens, NEXT):
         return "Siguiente sección", [{"cmd": "next_section"}]
-    if words & PLAY:
+    if _has(tokens, PLAY):
         return "Play", [{"cmd": "play"}]
     return None
 
