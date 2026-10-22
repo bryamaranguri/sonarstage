@@ -187,3 +187,12 @@ EG 1 desde la 6. En vivo + secuencia: −18.0 LUFS, pico −2.1 (idéntico a sin
 
 Paquete de 18 stems de 5:23 min: 24 s y 1 GB de memoria máxima, procesando un stem
 por vez (cargar todos a la vez agotó 3 GB).
+
+## Primera prueba en Ableton (21/10/2026)
+
+- `Prueba 1.als`, generado por SonarStage, abre en Live 12.4.3 sin errores.
+- SonarStage Link carga como superficie de control. Con UDP, Live recibía los comandos
+  pero las respuestas no llegaban a la Terminal (firewall de macOS); con TCP funcionan
+  `status`, `play`, `repeat`, `release` y `goto`.
+- Live recrea los scripts al abrir un documento: el script se instancia de nuevo y vuelve
+  a abrir el puerto sin conflicto.

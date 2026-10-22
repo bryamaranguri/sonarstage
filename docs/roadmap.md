@@ -16,10 +16,10 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Cambio de tono offline en stems armónicos (compensación de desfase y de volumen)
 - [x] Banda, configuración semanal y matriz de partes (una pista EN VIVO por músico) — *por línea de comandos; falta la interfaz*
 - [ ] Biblioteca: `cancion.json` + preparadas en FLAC
-- [x] Generador de show `.als` (clonado de la plantilla; perfiles de 2 y 4 salidas) — *pendiente: validar abriéndolo en Live*
+- [x] Generador de show `.als` (clonado de la plantilla; perfiles de 2 y 4 salidas) — **abre en Live 12.4.3** (`Prueba 1`)
 
 ## Fase 2 — Control en vivo
-- [x] Remote Script SonarStage Link (JSON por TCP local) — *carga en Live 12.4.3; probando comandos*
+- [x] Remote Script SonarStage Link (JSON por TCP local) — **probado en Live 12.4.3** (21/10/2026)
 - [ ] Setlist al vuelo, avance y parada automáticos
 - [x] Loops y saltos cuantizados, extender sección (en el núcleo del puente)
 - [ ] Guía inteligente
