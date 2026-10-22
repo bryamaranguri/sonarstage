@@ -165,3 +165,15 @@ def test_bad_commands_never_raise(setup):
     assert not core.handle({"cmd": "volar"})["ok"]
     assert not core.handle({"cmd": "goto", "section": "Coro"})["ok"]
     assert not core.handle({"cmd": "song"})["ok"]                 # missing number
+
+
+def test_repeated_names_go_to_the_next_one():
+    cues = [("1. Canción", 0), ("Verso", 8), ("Coro", 24), ("Verso", 40), ("Coro", 56), ("Puente", 72)]
+    song = FakeSong(cues)
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    song.current_song_time = 30                       # in the first "Coro"
+    core.handle({"cmd": "goto", "section": "Coro"})
+    assert song.current_song_time == 56               # the next chorus, not the one we are in
+    song.current_song_time = 74                       # in "Puente": no chorus after it
+    core.handle({"cmd": "goto", "section": "coro"})
+    assert song.current_song_time == 24               # back to the first one

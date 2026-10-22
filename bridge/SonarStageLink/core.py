@@ -74,13 +74,19 @@ class LinkCore(object):
     def song_starts(self):
         return [s for s in self.sections if s.is_song_start]
 
-    def find_section(self, name, within_song=None):
+    def find_section(self, name, within_song=None, after=None):
+        """Section by name. Names repeat ("Coro" several times): the first one after `after`
+        (the current position) wins, else the first one in the song."""
         key = name.strip().lower()
-        candidates = [s for s in self.sections if within_song is None or s.song_index == within_song]
-        for s in candidates:
-            if s.name.lower() == key:
-                return s
-        return None
+        matches = [s for s in self.sections if s.name.lower() == key
+                   and (within_song is None or s.song_index == within_song)]
+        if not matches:
+            return None
+        if after is not None:
+            later = [s for s in matches if s.start > after + 1e-6]
+            if later:
+                return later[0]
+        return matches[0]
 
     # --- commands ----------------------------------------------------------------------
 
@@ -124,7 +130,7 @@ class LinkCore(object):
     def _goto(self, msg):
         current = self.section_at(self.song.current_song_time)
         within = current.song_index if current and not msg.get("any_song") else None
-        target = self.find_section(msg["section"], within)
+        target = self.find_section(msg["section"], within, after=current.start if current else None)
         if target is None:
             raise ValueError("no hay una sección llamada %r" % msg["section"])
         self._arm(target)

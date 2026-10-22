@@ -5,3 +5,4 @@ unrar-cffi>=0.3   # RAR packs; ZIP is handled by the standard library
 # Requires ffmpeg / ffprobe on PATH (bundled inside the app for end users)
 soundfile>=0.12
 jsonschema>=4
+faster-whisper>=1.0  # nombres de sección desde la guía (label.py); descarga el modelo la primera vez

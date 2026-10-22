@@ -10,7 +10,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Alineación de stems contra el click (prototipo)
 - [x] Tempo, compás y primer tiempo desde click + bombo (prototipo)
 - [x] Medición de volumen, saturación y compatibilidad mono (prototipo)
-- [ ] Secciones desde la guía (Whisper, es/en) — *posiciones listas; falta transcribir en la Mac*
+- [ ] Secciones desde la guía (Whisper, es/en) — *módulo `label` listo; falta la primera corrida en la Mac (descarga del modelo)*
 - [ ] Estimación de tonalidad
 - [ ] Mezcla por plantilla de roles + normalización LUFS de la canción
 - [x] Cambio de tono offline en stems armónicos (compensación de desfase y de volumen)

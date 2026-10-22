@@ -33,6 +33,7 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `analyze` | Reporte completo de un paquete |
 | `extract` | Descomprime ZIP/RAR de forma segura |
 | `prepare` | Importa a la biblioteca: originales + receta (`cancion.json`) |
+| `label` | Nombres de sección desde la guía (Whisper, sin internet tras la descarga) |
 | `transpose` | Versión en otro tono (solo armónicos), compensada en tiempo y volumen |
 | `parts` | Banda, cuadrícula de actividad y matriz de partes por sección |
 | `render` | WAV del show: CUES, una pista EN VIVO por músico presente, SECUENCIA sumada |
@@ -44,4 +45,18 @@ Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
 
 El cambio de tono necesita un ffmpeg compilado con Rubber Band (el de Homebrew lo trae).
 
-Previsto: faster-whisper (transcripción de la guía).
+### Preparar la Mac (desarrollo)
+
+```bash
+cd ~/Ing/01-proj/sonar-stage/sonarstage/importer
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+which ffmpeg || brew install ffmpeg      # el de Homebrew trae Rubber Band (cambio de tono)
+```
+
+Nombres de sección (la primera vez descarga el modelo `small`, ~470 MB):
+
+```bash
+python -m sonarstage_import.label "../../material/biblioteca/Holy Forever" --model-dir ../../material/modelos
+python -m sonarstage_import.label "../../material/biblioteca/Holy Forever" --model-dir ../../material/modelos --apply
+```

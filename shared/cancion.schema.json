@@ -155,6 +155,10 @@
             "minimum": 0,
             "maximum": 4,
             "description": "Opcional. Anacrusa: la sección empieza este número de tiempos antes del tiempo 1 para el reparto entre EN VIVO y SECUENCIA (los locators siguen en el tiempo 1)."
+          },
+          "guide": {
+            "type": "string",
+            "description": "Lo que dice la guía al anunciar la sección (transcripción)."
           }
         }
       }
