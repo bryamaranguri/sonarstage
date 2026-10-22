@@ -31,6 +31,9 @@ python3 link.py goto "Sección 3"       # al terminar la sección actual, salta 
 python3 link.py next                   # al terminar la sección actual, a la siguiente
 python3 link.py cancel                 # cancela un salto pendiente
 python3 link.py next-song              # se detiene y se ubica en la siguiente canción
+python3 link.py next-is 3              # la canción 3 va después de esta
+python3 link.py skip 2                 # saltar la canción 2
+python3 link.py order 1 3 2            # todo el orden
 python3 link.py song 2
 python3 link.py unmute "Bajo"          # emergencia: suena la pista del bajista
 python3 link.py mute "Bajo"
@@ -47,8 +50,9 @@ python3 link.py autostop off           # no detenerse al llegar a la siguiente c
 - **Ir a una sección**: el salto queda pendiente y se dispara durante el último compás
   de la sección actual con cuantización de 1 compás. Live lo ejecuta en el siguiente
   tiempo 1, justo donde termina la sección. Detenido, salta de inmediato.
-- **Parada automática**: al llegar a la siguiente canción, se detiene y queda ubicado
-  ahí; un *play* la empieza.
+- **Parada automática**: al terminar una canción, se detiene y queda ubicado en la
+  siguiente según el **orden del show**; un *play* la empieza. El orden empieza como está
+  en el proyecto y se cambia en vivo (`next_is`, `skip`, `order`) sin mover nada en Ableton.
 - Los nombres de sección se buscan dentro de la canción actual. Si se repiten, va al
   próximo; «Coro» también encuentra «Coro 1» y «Coro 2».
 
@@ -60,7 +64,7 @@ real el firewall descartaba las respuestas UDP hacia `python3`; por TCP la respu
 vuelve por la conexión que abrió el cliente. Comandos: `status`, `refresh`, `play`
 (`continue`), `stop`, `goto` (`section`, `any_song`), `next_section`, `repeat` (la sección una vez más),
 `hold` (en bucle hasta `release`), `release`, `cancel`, `song` (`number`), `next_song`, `mute` (`track`, `on`),
-`autostop` (`on`), `setlist` (canciones con sus secciones y nombres de pistas, para el
+`autostop` (`on`), `order` (`songs`), `next_is` (`number`), `skip` (`number`), `setlist` (canciones con sus secciones y nombres de pistas, para el
 control por voz) y `message` (`text`: lo muestra en la barra de estado de Live).
 
 `state`: `playing`, `beat`, `tempo`, `song`, `song_title`, `section`, `section_bar`,

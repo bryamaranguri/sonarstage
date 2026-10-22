@@ -7,6 +7,8 @@
     python3 link.py hold | release            (repeat until released)
     python3 link.py goto "Sección 3"          (in the current song, at the end of this section)
     python3 link.py song 2 | next-song
+    python3 link.py next-is 3                 (song 3 comes after this one)
+    python3 link.py skip 2 | order 1 3 2      (leave a song out / the whole order)
     python3 link.py mute "Bajo" | unmute "Bajo"
     python3 link.py autostop on|off
     python3 link.py watch                     (state twice per second; Ctrl+C to quit)
@@ -45,6 +47,8 @@ def describe(st):
         flags.append("repitiendo")
     if st["pending"]:
         flags.append("→ irá a %s" % st["pending"])
+    if st.get("next_song"):
+        flags.append("después: %s" % st["next_song"])
     return "%s%s  [%s]" % (where, bar, ", ".join(flags))
 
 
@@ -70,6 +74,10 @@ def main(argv):
         msg = {"cmd": "goto", "section": " ".join(args)}
     elif cmd == "song" and args:
         msg = {"cmd": "song", "number": int(args[0])}
+    elif cmd in ("next-is", "skip") and args:
+        msg = {"cmd": cmd.replace("-", "_"), "number": int(args[0])}
+    elif cmd == "order" and args:
+        msg = {"cmd": "order", "songs": [int(a) for a in args]}
     elif cmd in ("mute", "unmute") and args:
         msg = {"cmd": "mute", "track": " ".join(args), "on": cmd == "mute"}
     elif cmd == "autostop" and args:

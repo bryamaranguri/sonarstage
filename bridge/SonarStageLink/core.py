@@ -48,6 +48,7 @@ class LinkCore(object):
         self.notify = notify or (lambda msg: None)    # Live's status bar
         self.pending = None                           # Section to jump to
         self.parked = None                            # where we left the stopped transport
+        self.order = None                             # play order (song numbers); None = as arranged
         self.autostop = True
         self._last_beat = None
         self.sections = []
@@ -101,6 +102,35 @@ class LinkCore(object):
                 return later[0]
         return matches[0]
 
+    def play_order(self):
+        numbers = [s.song_index for s in self.song_starts()]
+        if not self.order:
+            return numbers
+        return [n for n in self.order if n in numbers]
+
+    def next_song_number(self, current):
+        """The song after `current` in the play order (None after the last one)."""
+        order = self.play_order()
+        if current in order:
+            i = order.index(current)
+            return order[i + 1] if i + 1 < len(order) else None
+        later = [n for n in order if n > current]      # a song played outside the order
+        return later[0] if later else None
+
+    def _song_number(self, msg):
+        n = int(msg["number"])
+        if n not in [s.song_index for s in self.song_starts()]:
+            raise ValueError("no hay canción %d" % n)
+        return n
+
+    def _next_is(self, n):
+        """Song `n` goes right after the current one."""
+        current = self.section_at(self.song.current_song_time)
+        order = [x for x in self.play_order() if x != n]
+        at = order.index(current.song_index) + 1 if current and current.song_index in order else 0
+        order.insert(at, n)
+        self.order = order
+
     def setlist(self):
         songs = []
         for s in self.sections:
@@ -145,8 +175,20 @@ class LinkCore(object):
                 self._mute(msg["track"], bool(msg.get("on", True)))
             elif cmd == "autostop":
                 self.autostop = bool(msg.get("on", True))
+            elif cmd == "order":
+                numbers = [s.song_index for s in self.song_starts()]
+                order = [int(n) for n in msg["songs"]]
+                bad = [n for n in order if n not in numbers]
+                if bad:
+                    raise ValueError("no hay canción %d" % bad[0])
+                self.order = order
+            elif cmd == "next_is":
+                self._next_is(self._song_number(msg))
+            elif cmd == "skip":
+                n = self._song_number(msg)
+                self.order = [x for x in self.play_order() if x != n]
             elif cmd == "setlist":
-                return {"ok": True, "setlist": self.setlist(),
+                return {"ok": True, "setlist": self.setlist(), "order": self.play_order(),
                         "tracks": [t.name for t in self.song.tracks], "state": self.state()}
             elif cmd == "message":
                 self.notify(str(msg.get("text", ""))[:120])
@@ -234,10 +276,10 @@ class LinkCore(object):
 
     def _next_song(self):
         current = self.section_at(self.song.current_song_time)
-        nxt = [s for s in self.song_starts() if current is None or s.song_index > current.song_index]
-        if not nxt:
+        n = self.play_order()[0] if current is None else self.next_song_number(current.song_index)
+        if n is None:
             raise ValueError("es la última canción")
-        self._song(nxt[0].song_index)
+        self._song(n)
 
     def _mute(self, name, on):
         key = name.strip().lower()
@@ -258,12 +300,16 @@ class LinkCore(object):
             if self.autostop and moving_on:
                 for s in self.song_starts():
                     if self._last_beat < s.start - 1e-6 <= beat and s.start > 0:
-                        # reached the next song: stop and wait there
+                        # end of a song: stop and wait at the next one in the play order
+                        finished = self.section_at(self._last_beat)
+                        n = self.next_song_number(finished.song_index) if finished else None
+                        starts = [x for x in self.song_starts() if x.song_index == n]
+                        target = starts[0].start if starts else s.start
                         self.song.stop_playing()
                         self.song.loop = False
                         self.pending = None
-                        self._park(s.start)
-                        beat = s.start
+                        self._park(target)
+                        beat = target
                         break
         self._last_beat = beat
 
@@ -300,4 +346,10 @@ class LinkCore(object):
             "loop": bool(self.song.loop),
             "pending": self.pending.name if self.pending else None,
             "autostop": self.autostop,
+            "next_song": self._next_title(current),
         }
+
+    def _next_title(self, current):
+        n = self.play_order()[0] if current is None else self.next_song_number(current.song_index)
+        starts = [s for s in self.song_starts() if s.song_index == n]
+        return "%d. %s" % (n, starts[0].song_title) if starts else None

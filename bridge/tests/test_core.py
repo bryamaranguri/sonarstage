@@ -269,3 +269,37 @@ def test_play_resumes_where_we_parked_even_if_the_marker_is_read_only():
     core.handle({"cmd": "goto", "section": "Sección 2"})        # stopped: moves at once
     core.handle({"cmd": "play"})
     assert song.current_song_time == 448
+
+
+
+THREE = [("1. Uno", 0), ("Verso", 8), ("2. Dos", 40), ("Verso", 48), ("3. Tres", 80), ("Verso", 88)]
+
+
+def test_next_is_changes_what_comes_after_this_song():
+    song = FakeSong(THREE)
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    core.handle({"cmd": "play"})
+    run(core, song, 4)
+    assert core.state()["next_song"] == "2. Dos"
+    r = core.handle({"cmd": "next_is", "number": 3})            # "después va la canción tres"
+    assert r["state"]["next_song"] == "3. Tres"
+    assert core.handle({"cmd": "setlist"})["order"] == [1, 3, 2]
+    run(core, song, 40)                                         # song 1 ends…
+    assert not song.is_playing and song.current_song_time == 80  # …and waits at song 3
+    core.handle({"cmd": "play"})
+    run(core, song, 50)                                         # song 3 is the last arranged…
+    core.handle({"cmd": "next_song"})                           # …but 2 is still to be played
+    assert song.current_song_time == 40
+
+
+def test_skip_and_order():
+    song = FakeSong(THREE)
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    core.handle({"cmd": "skip", "number": 2})
+    assert core.handle({"cmd": "setlist"})["order"] == [1, 3]
+    core.handle({"cmd": "next_song"})                           # from song 1
+    assert song.current_song_time == 80
+    assert core.handle({"cmd": "order", "songs": [3, 1, 2]})["ok"]
+    assert core.state()["next_song"] == "1. Uno"                # in song 3, then 1
+    assert not core.handle({"cmd": "order", "songs": [1, 4]})["ok"]
+    assert not core.handle({"cmd": "next_is", "number": 9})["ok"]

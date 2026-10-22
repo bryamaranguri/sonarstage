@@ -10,6 +10,8 @@ Closed vocabulary in Spanish (and the usual English words), after a wake word:
     "Secuencia, cancela"                forget the pending jump
     "Secuencia, siguiente canción"      next song (stopped, ready to play)
     "Secuencia, canción tres"           song 3
+    "Secuencia, después va la canción tres"   song 3 comes next (the show remembers the order)
+    "Secuencia, saltamos la canción dos"      leave song 2 out
     "Secuencia, silencia la guitarra"   mute the live backup of a musician; "activa" undoes it
     "Secuencia, dale" / "para"          play / stop
 
@@ -48,6 +50,8 @@ CANCEL = {"cancela", "cancelar", "cancelalo", "olvidalo", "olvida", "cancel", "a
 STOP = {"para", "paramos", "parar", "alto", "detente", "deten", "stop", "corta", "cortamos"}
 NEXT = {"siguiente", "proxima", "proximo", "next"}
 PREVIOUS = {"anterior", "previous", "pasada", "atras"}
+AFTER = {"despues", "luego", "continuacion", "enseguida", "after"}
+SKIP = {"saltamos", "saltar", "salta", "omitimos", "omite", "omitir", "quitamos", "quita", "sacamos", "saca"}
 LAST = {"ultima", "ultimo", "last"}
 SONG = {"cancion", "song", "tema"}
 # Mute and unmute change what the audience hears: exact words only, never "close enough"
@@ -188,12 +192,12 @@ def find_track(tokens, tracks):
 
 FILLER = {"al", "a", "la", "el", "ir", "vamos", "de", "del", "desde", "con", "en", "y", "por", "favor",
           "otra", "vez", "mas", "nuevo", "seccion", "parte", "ahora", "ya", "las", "los", "un", "le", "lo",
-          "porfa", "banda", "hasta", "todo", "todos", "esto", "eso"}
+          "porfa", "banda", "hasta", "todo", "todos", "esto", "eso", "va", "es", "sigue"}
 
 
 def _vocabulary(sections, tracks, songs):
     words = set(FILLER) | set(SECTION_WORDS.values()) | set(GENERIC_SECTIONS)
-    for group in (CANCEL, STOP, NEXT, PREVIOUS, LAST, SONG, MUTE, UNMUTE, HOLD, REPEAT, RELEASE, PLAY):
+    for group in (CANCEL, STOP, NEXT, PREVIOUS, LAST, SONG, MUTE, UNMUTE, HOLD, REPEAT, RELEASE, PLAY, AFTER, SKIP):
         words |= group
     for aliases in TRACK_WORDS.values():
         words |= set(aliases)
@@ -239,28 +243,8 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
     if tokens[0] in STOP:
         return "Parar", [{"cmd": "stop"}]
 
-    song = None
-    if _has(tokens, SONG) or ("next" in words and "song" in words):
-        if _has(tokens, NEXT):
-            song = "Siguiente canción", [{"cmd": "next_song"}]
-        elif _has(tokens, PREVIOUS):
-            if song_number and song_number > 1:
-                song = "Canción anterior", [{"cmd": "song", "number": song_number - 1}]
-            else:
-                return "Ya es la primera canción", []
-        elif _has(tokens, LAST) and songs:
-            song = "Última canción", [{"cmd": "song", "number": songs[-1][0]}]
-        elif _number(tokens) is not None:
-            n = _number(tokens)
-            song = "Canción %d" % n, [{"cmd": "song", "number": n}]
-    if song is None:
-        for number, title in songs:
-            if len(normalize(title)) >= 2 and _contains(tokens, normalize(title)[:2]):
-                song = "Canción %d · %s" % (number, title), [{"cmd": "song", "number": number}]
-                break
+    song = _song_order(tokens, words, songs, song_number)
     if song is not None:
-        if _has(tokens, PLAY):                      # "empezamos con la primera canción"
-            return song[0] + " y play", song[1] + [{"cmd": "play"}]
         return song
 
     if words & (MUTE | UNMUTE):
@@ -296,6 +280,37 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
     if _has(tokens, PLAY):
         return "Play", [{"cmd": "play"}]
     return None
+
+
+def _song_order(tokens, words, songs, song_number):
+    """Orders about songs: jump to one now, or change what comes after this one."""
+    said_song = _has(tokens, SONG) or ("next" in words and "song" in words)
+    target = None
+    if said_song and _number(tokens) is not None:
+        target = _number(tokens)
+    for number, title in songs:
+        if target is None and len(normalize(title)) >= 2 and _contains(tokens, normalize(title)[:2]):
+            target = number
+    if target is None and said_song and _has(tokens, LAST) and songs:
+        target = songs[-1][0]
+    titles = dict(songs)
+    shown = ("Canción %d · %s" % (target, titles[target])) if target in titles else "Canción %s" % target
+
+    if target is not None and words & SKIP:
+        return "Saltar " + shown.lower(), [{"cmd": "skip", "number": target}]
+    if target is not None and (words & AFTER or _has(tokens, NEXT)):
+        return "Después: " + shown.lower(), [{"cmd": "next_is", "number": target}]
+    if said_song and _has(tokens, NEXT):
+        return "Siguiente canción", [{"cmd": "next_song"}]
+    if said_song and _has(tokens, PREVIOUS):
+        if song_number and song_number > 1:
+            return "Canción anterior", [{"cmd": "song", "number": song_number - 1}]
+        return "Ya es la primera canción", []
+    if target is None:
+        return None
+    if _has(tokens, PLAY):                          # "empezamos con la primera canción"
+        return shown + " y play", [{"cmd": "song", "number": target}, {"cmd": "play"}]
+    return shown, [{"cmd": "song", "number": target}]
 
 
 def _same_section(spoken, current):

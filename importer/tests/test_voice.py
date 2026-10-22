@@ -208,6 +208,19 @@ def test_songs(said, commands):
     assert parse(said, SECTIONS, TRACKS, SONGS, song_number=2)[1] == commands
 
 
+@pytest.mark.parametrize("said,commands", [
+    ("Secuencia, después va la canción tres", [{"cmd": "next_is", "number": 3}]),
+    ("Secuencia, luego Holy Forever", [{"cmd": "next_is", "number": 1}]),
+    ("Secuencia, la siguiente es la canción tres", [{"cmd": "next_is", "number": 3}]),
+    ("Secuencia, saltamos la canción dos", [{"cmd": "skip", "number": 2}]),
+    ("Secuencia, quita Alegras mis días", [{"cmd": "skip", "number": 2}]),
+    ("Secuencia, siguiente canción", [{"cmd": "next_song"}]),       # unchanged: go now
+    ("Secuencia, quita la guía", [{"cmd": "mute", "track": "Guía", "on": True}]),   # not a song
+])
+def test_changing_the_order(said, commands):
+    assert parse(said, SECTIONS, TRACKS, SONGS, song_number=1)[1] == commands
+
+
 def test_no_song_before_the_first():
     assert parse("Secuencia, canción anterior", SECTIONS, songs=SONGS, song_number=1) == ("Ya es la primera canción", [])
 
