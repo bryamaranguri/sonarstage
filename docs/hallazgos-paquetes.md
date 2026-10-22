@@ -284,4 +284,21 @@ sonando, y 82 frases de habla normal a la banda («en negras», «coros en terce
   parecerse a una orden: al menos la mitad de las palabras deben ser del vocabulario.
 - Silenciar y activar no aceptan parecidos en el verbo; el nombre de la pista sí
   («botería» → Batería) si solo una pista se parece.
-- Pendiente: medir en la Mac Whisper en la gráfica (MLX) y Vosk con vocabulario cerrado.
+
+### Motores medidos en la M4 Max (mismas 169 frases)
+
+| Motor | Órdenes bien | Otra orden | Falsas alarmas | Reconocer |
+|---|---|---|---|---|
+| Whisper small, CPU (faster-whisper) | 66/84 (79 %) | 0 | 0/82 | 850 ms |
+| + pista «Secuencia.» | 71/84 (85 %) | 0 | 0/82 | 858 ms |
+| Whisper small en la gráfica (MLX) | 54/84 (64 %) | 0 | 0/82 | 61 ms |
+| Whisper large-v3-turbo en la gráfica (MLX) | 80/84 (95 %) | 0 | 0/82 | 210 ms |
+| **Vosk small es, vocabulario cerrado** | **81/84 (96 %)** | 2 | **0/82** | **10 ms** |
+
+- **Vosk queda por defecto.** Solo puede oír palabras de las órdenes: la palabra de
+  activación deja de ser el problema y responde en milisegundos (en vivo manda la espera
+  de 400 ms de silencio). Pesa 40 MB y corre igual en una MacBook Air M1.
+- Sus 2 errores: «vamos al verso dos» oído como «vamos verso». Va al próximo verso, que
+  desde el coro suele ser el 2, pero no siempre.
+- Con las secuencias completas de las dos canciones como micrófono: ninguna orden falsa.
+- Turbo es la alternativa (`--engine mlx`): 1.6 GB, solo Apple Silicon, más lento en una M1.

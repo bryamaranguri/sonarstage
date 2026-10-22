@@ -7,3 +7,5 @@ soundfile>=0.12
 jsonschema>=4
 faster-whisper>=1.0  # nombres de sección desde la guía (label.py); descarga el modelo la primera vez
 sounddevice>=0.4   # micrófono para el control por voz (incluye PortAudio en Mac)
+vosk>=0.3.45      # control por voz: vocabulario cerrado (modelo vosk-model-small-es-0.42 en material/modelos)
+mlx-whisper; sys_platform == "darwin" and platform_machine == "arm64"   # alternativa: Whisper en la gráfica

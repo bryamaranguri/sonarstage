@@ -318,3 +318,14 @@ def _same_section(spoken, current):
         return True
     a, b = _section_tokens(spoken), _section_tokens(current)
     return a == b or a == b[:len(a)]
+
+
+def order_words():
+    """Every word an order can have, written as spoken (for closed-vocabulary engines)."""
+    plain = set(WAKE_WORDS) | CANCEL | STOP | NEXT | PREVIOUS | LAST | SONG | MUTE | UNMUTE | HOLD | \
+        REPEAT | RELEASE | PLAY | AFTER | SKIP | FILLER
+    spoken = {"canción", "batería", "guitarra", "bajo", "teclado", "guía", "clic", "metrónomo", "intro",
+              "verso", "pre", "coro", "puente", "final", "instrumental", "interludio", "tag", "uno", "dos",
+              "tres", "cuatro", "cinco", "seis", "primera", "segunda", "tercera", "última", "próxima",
+              "después", "más", "atrás", "continúa", "y"}
+    return sorted(plain | spoken)

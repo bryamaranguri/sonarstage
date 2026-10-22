@@ -24,8 +24,6 @@ from pathlib import Path
 import numpy as np
 
 from .voice import ARMED_SECONDS, Context, Interpreter, Transcriber  # noqa: F401
-from .voice_commands import (AFTER, CANCEL, HOLD, LAST, MUTE, NEXT, PLAY, PREVIOUS, RELEASE, REPEAT, SKIP,
-                             SONG, STOP, UNMUTE, WAKE_WORDS)
 
 # what the band was playing while recording (Prueba 3): song 2 of 2, in a chorus
 SECTIONS = ["Intro", "Verso 1", "Pre coro", "Coro 1", "Verso 2", "Build", "Coro 2", "Tag", "Final"]
@@ -83,27 +81,16 @@ def mlx(repo):
     return make
 
 
-VOSK_WORDS = sorted(set(WAKE_WORDS) | CANCEL | STOP | NEXT | PREVIOUS | LAST | SONG | MUTE | UNMUTE | HOLD |
-                    REPEAT | RELEASE | PLAY | AFTER | SKIP | {"después", "va", "es",
-                        "canción", "batería", "guitarra", "bajo", "teclado", "guía", "clic", "metrónomo",
-                        "intro", "verso", "pre", "coro", "puente", "final", "instrumental", "interludio", "tag",
-                        "uno", "dos", "tres", "cuatro", "cinco", "primera", "segunda", "tercera", "última",
-                        "próxima", "otra", "vez", "más", "de", "nuevo", "vamos", "al", "a", "la", "el", "ir",
-                        "desde", "con", "en", "banda", "y"})
-
-
 def vosk(args):
-    from vosk import KaldiRecognizer, Model, SetLogLevel
-    SetLogLevel(-1)
-    path = Path(args.vosk_model) if args.vosk_model else next(Path(args.model_dir).glob("vosk-model*es*"))
-    model = Model(str(path))
-    rec = KaldiRecognizer(model, 16000, json.dumps(VOSK_WORDS + ["[unk]"], ensure_ascii=False))
+    from .voice import VoskTranscriber
+    t = VoskTranscriber(args.model_dir)
+    return lambda audio: t(audio)
 
-    def run(audio):
-        rec.Reset()
-        rec.AcceptWaveform((np.clip(audio, -1, 1) * 32767).astype("<i2").tobytes())
-        return json.loads(rec.FinalResult()).get("text", "").replace("[unk]", "").strip()
-    return run
+
+def mlx_prompt(args):
+    from .voice import MLXTranscriber
+    t = MLXTranscriber()
+    return lambda audio: t(audio, "Secuencia.")
 
 
 ENGINES = {
@@ -111,6 +98,7 @@ ENGINES = {
     "whisper-prompt": lambda args: whisper_cpu(args, prompt="Secuencia."),
     "mlx-small": mlx("mlx-community/whisper-small-mlx"),
     "mlx-turbo": mlx("mlx-community/whisper-large-v3-turbo"),
+    "mlx-turbo-prompt": mlx_prompt,
     "vosk": vosk,
 }
 

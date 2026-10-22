@@ -109,6 +109,41 @@ class Transcriber(object):
         return " ".join(kept).strip()
 
 
+class MLXTranscriber(object):
+    """Whisper on the Mac's GPU (Apple Silicon): pip install mlx-whisper."""
+
+    def __init__(self, repo="mlx-community/whisper-large-v3-turbo", language="es"):
+        import mlx_whisper
+        self.mlx_whisper, self.repo, self.language = mlx_whisper, repo, language
+
+    def __call__(self, audio_16k, prompt):
+        with np.errstate(all="ignore"):
+            r = self.mlx_whisper.transcribe(audio_16k, path_or_hf_repo=self.repo, language=self.language,
+                                            temperature=0.0, initial_prompt=prompt,
+                                            condition_on_previous_text=False, verbose=None)
+        return " ".join(s["text"] for s in r.get("segments", [])
+                        if s.get("no_speech_prob", 0) < 0.6 and s.get("avg_logprob", 0) > -1.0).strip()
+
+
+class VoskTranscriber(object):
+    """Closed vocabulary: Vosk can only hear the words of the orders (pip install vosk and
+    the small Spanish model, vosk-model-small-es-0.42, in the models folder)."""
+
+    def __init__(self, model_dir):
+        import json as _json
+        from vosk import KaldiRecognizer, Model, SetLogLevel
+        from .voice_commands import order_words
+        SetLogLevel(-2)                 # also quiet "word missing in vocabulary" (they are skipped)
+        path = next(Path(model_dir).glob("vosk-model*es*"))
+        self.json = _json
+        self.rec = KaldiRecognizer(Model(str(path)), SR, _json.dumps(order_words() + ["[unk]"], ensure_ascii=False))
+
+    def __call__(self, audio_16k, prompt=None):
+        self.rec.Reset()
+        self.rec.AcceptWaveform((np.clip(audio_16k, -1, 1) * 32767).astype("<i2").tobytes())
+        return self.json.loads(self.rec.FinalResult()).get("text", "").replace("[unk]", "").strip()
+
+
 class Context(object):
     """What can be said right now: sections of the current song, tracks, songs."""
 
@@ -264,6 +299,9 @@ def main(argv=None):
     ap.add_argument("--channel", type=int, default=1, help="Entrada del micrófono (1, 2, …)")
     ap.add_argument("--file", help="Probar con una grabación en lugar del micrófono")
     ap.add_argument("--song", help="Con --file: carpeta de la canción, para conocer sus secciones")
+    ap.add_argument("--engine", choices=["whisper", "mlx", "vosk"],
+                    help="vosk (vocabulario cerrado; por defecto si su modelo está en --model-dir), "
+                         "mlx (Whisper turbo en la gráfica de la Mac) o whisper (procesador)")
     ap.add_argument("--model", default="small")
     ap.add_argument("--model-dir")
     ap.add_argument("--language", default="es")
@@ -278,7 +316,16 @@ def main(argv=None):
         return 0
     wake = () if args.no_wake else (args.wake.lower(),)
     print("Cargando el modelo de voz…", flush=True)
-    transcribe = Transcriber(args.model, args.model_dir, args.language)
+    if args.engine is None:
+        has_vosk = args.model_dir and any(Path(args.model_dir).glob("vosk-model*es*"))
+        args.engine = "vosk" if has_vosk else "whisper"
+    print("Motor: %s" % args.engine, flush=True)
+    if args.engine == "vosk":
+        transcribe = VoskTranscriber(args.model_dir)
+    elif args.engine == "mlx":
+        transcribe = MLXTranscriber(language=args.language)
+    else:
+        transcribe = Transcriber(args.model, args.model_dir, args.language)
     if args.file:
         fixed = Context.from_song(args.song) if args.song else Context()
         blocks, sr = file_blocks(args.file), SR
