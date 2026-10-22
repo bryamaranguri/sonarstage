@@ -15,6 +15,9 @@ class Cue:
         self.song, self.name, self.time = song, name, time
 
     def jump(self):
+        if not self.song.is_playing:                # stopped: moves the marker and the playhead
+            self.song.current_song_time = self.song.start_time = self.time
+            return
         self.song.queued_jump = self.time           # Live waits for the next bar if quantized
 
 
@@ -263,13 +266,14 @@ def test_play_resumes_where_we_parked_even_if_the_marker_is_read_only():
     song = NoStartTime(CUES)
     core = LinkCore(song, bar_quantization=Q_BAR)
     core.handle({"cmd": "song", "number": 2})
-    core.handle({"cmd": "play"})
-    assert song.is_playing and song.current_song_time == 424
+    core.handle({"cmd": "play"})                      # Live starts at its marker (0)…
+    run(core, song, 0.2)                              # …and the first tick puts it at song 2
+    assert song.is_playing and 424 <= song.current_song_time < 425
     core.handle({"cmd": "stop"})
     core.handle({"cmd": "goto", "section": "Sección 2"})        # stopped: moves at once
     core.handle({"cmd": "play"})
-    assert song.current_song_time == 448
-
+    run(core, song, 0.2)
+    assert 448 <= song.current_song_time < 449
 
 
 THREE = [("1. Uno", 0), ("Verso", 8), ("2. Dos", 40), ("Verso", 48), ("3. Tres", 80), ("Verso", 88)]
@@ -303,3 +307,33 @@ def test_skip_and_order():
     assert core.state()["next_song"] == "1. Uno"                # in song 3, then 1
     assert not core.handle({"cmd": "order", "songs": [1, 4]})["ok"]
     assert not core.handle({"cmd": "next_is", "number": 9})["ok"]
+
+
+class ResumesWhereItStopped(FakeSong):
+    """The Live seen on stage: after a stop by hand, play went back to where it stopped,
+    whatever the playhead and the marker said."""
+
+    def stop_playing(self):
+        self.stopped_at = self.current_song_time
+        self.is_playing = False
+
+    def start_playing(self):
+        self.current_song_time = getattr(self, "stopped_at", self.start_time)
+        self.is_playing = True
+
+    continue_playing = start_playing
+
+
+def test_play_after_choosing_a_song_even_if_live_resumes_elsewhere():
+    song = ResumesWhereItStopped(CUES)
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    song.current_song_time = 440
+    song.continue_playing()
+    run(core, song, 8)
+    song.stop_playing()                               # stopped by hand in song 2
+    core.handle({"cmd": "song", "number": 1})          # "Secuencia, canción 1"
+    core.handle({"cmd": "play"})                       # "Secuencia, dale"
+    run(core, song, 0.4)                               # first ticks
+    assert 0 <= song.current_song_time < 1 and core.state()["song"] == 1
+    run(core, song, 8)
+    assert song.is_playing and core.state()["song"] == 1

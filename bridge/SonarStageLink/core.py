@@ -49,6 +49,7 @@ class LinkCore(object):
         self.pending = None                           # Section to jump to
         self.parked = None                            # where we left the stopped transport
         self.order = None                             # play order (song numbers); None = as arranged
+        self.verify_start = None                      # where the last play had to start
         self.autostop = True
         self._last_beat = None
         self.sections = []
@@ -220,25 +221,47 @@ class LinkCore(object):
 
     def _park(self, beat):
         """Leave the stopped transport at `beat`, so the next play starts there.
-        Live's play starts from its start marker, not from the playhead: move both."""
+
+        Live does not always start where the playhead shows: play starts at the start
+        marker, and after a stop by hand it resumed where it had stopped (seen on stage,
+        22 Oct). So everything is moved: the locator there is "clicked" (jump, which moves
+        the marker while stopped), the playhead and the marker are set, and _play checks
+        on the first tick that playback really started here."""
+        cue = next((x.cue for x in self.sections if abs(x.start - beat) < 1e-6), None)
+        if cue is not None and not self.song.is_playing:
+            try:
+                cue.jump()
+            except Exception as e:
+                self.log("jump al locator: %r" % (e,))
         self.song.current_song_time = beat
         try:
             self.song.start_time = beat
         except Exception:
-            pass                                  # not settable in this Live: _play handles it
+            pass                                  # read only in some versions: _play checks
         self.parked = beat
 
     def _play(self, msg):
         if self.song.is_playing:
             return
         if self.parked is not None:
-            self.song.current_song_time = self.parked
-            self.parked = None
-            self.song.continue_playing()          # from the playhead, wherever the marker is
+            beat, self.parked = self.parked, None
+            self.song.current_song_time = beat
+            self.song.start_playing()
+            self.verify_start = beat              # tick() puts it right if Live started elsewhere
         elif msg.get("continue"):
             self.song.continue_playing()
         else:
             self.song.start_playing()
+
+    def _check_start(self, beat):
+        """First tick after a play from a chosen place: if Live started somewhere else, go
+        there at once (a few ms of the wrong place are better than the wrong song)."""
+        target, self.verify_start = self.verify_start, None
+        if not target - 1e-6 <= beat < target + 2 * self.bar_length():
+            self.log("play empezó en %.2f en vez de %.2f: corrigiendo" % (beat, target))
+            self.song.current_song_time = target
+            return target
+        return beat
 
     def _arm(self, target):
         if not self.song.is_playing:
@@ -293,6 +316,9 @@ class LinkCore(object):
 
     def tick(self):
         beat = self.song.current_song_time
+        if self.song.is_playing and self.verify_start is not None:
+            beat = self._check_start(beat)
+            self._last_beat = beat
         if self.song.is_playing:
             self._maybe_fire()
             # natural playback only: a jump also crosses positions, but in one step
