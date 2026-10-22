@@ -40,12 +40,14 @@ def test_commands_over_tcp(monkeypatch):
     monkeypatch.setattr(link, "ADDR", sock.getsockname())
     song = FakeSong(CUES)
     stop = threading.Event()
-    t = threading.Thread(target=serve, args=(LinkCore(song, bar_quantization=Q_BAR), sock, stop), daemon=True)
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    t = threading.Thread(target=serve, args=(core, sock, stop), daemon=True)
     t.start()
     try:
         assert link.main(["goto", "Sección", "2"]) == 0 and song.current_song_time == 24
         assert link.main(["play"]) == 0 and song.is_playing
-        assert link.main(["repeat"]) == 0 and song.loop
+        assert link.main(["repeat"]) == 0 and core.pending.name == "Sección 2"
+        assert link.main(["hold"]) == 0 and song.loop
         assert link.main(["mute", "Bajo"]) == 0 and song.tracks[1].mute
         assert link.main(["goto", "Coro"]) == 1                       # unknown section: clear error
         r = link.send({"cmd": "status"})

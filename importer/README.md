@@ -74,7 +74,8 @@ python -m sonarstage_import.voice --device "<interfaz>" --channel 2 --model-dir 
 python -m sonarstage_import.voice --device "<interfaz>" --channel 2 --model-dir ../../material/modelos
 ```
 
-Siempre empieza con la palabra de activación: «Secuencia, repetimos el coro», «Secuencia,
+Siempre empieza con la palabra de activación: «Secuencia, repetimos» (una vez más; para
+otra, se vuelve a decir), «Secuencia, en bucle» (hasta «seguimos»), «Secuencia,
 vamos al puente», «Secuencia, siguiente», «Secuencia, seguimos», «Secuencia, cancela»,
 «Secuencia, siguiente canción», «Secuencia, silencia la guitarra» / «activa la guitarra»,
 «Secuencia, dale» / «para». Lo que se ejecuta aparece en la barra de estado de Live.

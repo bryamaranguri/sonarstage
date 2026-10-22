@@ -24,8 +24,9 @@ cd ~/Ing/01-proj/sonar-stage/sonarstage/bridge
 python3 link.py status                 # dónde estás
 python3 link.py watch                  # estado en vivo (Ctrl+C para salir)
 python3 link.py play
-python3 link.py repeat                 # repite la sección actual hasta...
-python3 link.py release                # ...soltarla: sigue a la siguiente
+python3 link.py repeat                 # la sección actual una vez más (repetirlo para otra)
+python3 link.py hold                   # en bucle hasta...
+python3 link.py release                # ...soltarla (también anula un salto pendiente)
 python3 link.py goto "Sección 3"       # al terminar la sección actual, salta a la 3
 python3 link.py next                   # al terminar la sección actual, a la siguiente
 python3 link.py cancel                 # cancela un salto pendiente
@@ -40,7 +41,9 @@ python3 link.py autostop off           # no detenerse al llegar a la siguiente c
 
 - **Canciones y secciones** salen de los locators del show: `"2. Alegras mis días"`
   abre una canción; los demás locators son secciones.
-- **Repetir**: activa el loop de Live sobre la sección actual. Al soltar, la canción sigue.
+- **Repetir**: al terminar la sección, vuelve a su inicio una sola vez (el mismo salto
+  cuantizado que *ir a una sección*). **En bucle** (`hold`) usa el loop de Live hasta soltarlo.
+- Cada comando queda anotado en el `Log.txt` de Live.
 - **Ir a una sección**: el salto queda pendiente y se dispara durante el último compás
   de la sección actual con cuantización de 1 compás. Live lo ejecuta en el siguiente
   tiempo 1, justo donde termina la sección. Detenido, salta de inmediato.
@@ -55,8 +58,8 @@ python3 link.py autostop off           # no detenerse al llegar a la siguiente c
 una línea de JSON con `{"ok", "error"?, "state"}`. Se usa TCP y no UDP porque en una Mac
 real el firewall descartaba las respuestas UDP hacia `python3`; por TCP la respuesta
 vuelve por la conexión que abrió el cliente. Comandos: `status`, `refresh`, `play`
-(`continue`), `stop`, `goto` (`section`, `any_song`), `next_section`, `repeat`,
-`release`, `cancel`, `song` (`number`), `next_song`, `mute` (`track`, `on`),
+(`continue`), `stop`, `goto` (`section`, `any_song`), `next_section`, `repeat` (la sección una vez más),
+`hold` (en bucle hasta `release`), `release`, `cancel`, `song` (`number`), `next_song`, `mute` (`track`, `on`),
 `autostop` (`on`), `setlist` (canciones con sus secciones y nombres de pistas, para el
 control por voz) y `message` (`text`: lo muestra en la barra de estado de Live).
 

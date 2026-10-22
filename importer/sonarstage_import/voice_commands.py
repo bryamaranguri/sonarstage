@@ -2,7 +2,8 @@
 
 Closed vocabulary in Spanish (and the usual English words), after a wake word:
 
-    "Secuencia, repetimos el coro"      repeat (or go to the chorus if we are elsewhere)
+    "Secuencia, repetimos el coro"      repeat it once (or go to the chorus if we are elsewhere)
+    "Secuencia, en bucle"               repeat until "seguimos"
     "Secuencia, vamos al puente"        go to the next "Puente" at the end of this section
     "Secuencia, siguiente"              next section
     "Secuencia, seguimos"               release a repeat
@@ -53,6 +54,7 @@ MUTE = {"silencia", "silenciar", "silenciamos", "mutea", "mutear", "apaga", "apa
         "quitar", "saca", "sacar", "calla", "mute"}
 UNMUTE = {"activa", "activar", "activamos", "prende", "prender", "enciende", "desmutea", "pon",
           "suena", "unmute", "devuelve", "regresa"}
+HOLD = {"bucle", "loop", "mantenemos", "manten", "mantener", "mantengamos", "congela", "hold"}
 REPEAT = {"repite", "repetimos", "repetir", "repitan", "repeat", "again"}
 RELEASE = {"seguimos", "sigue", "suelta", "soltamos", "continua", "continuamos", "continue",
            "avanza", "avanzamos", "salimos", "release"}
@@ -221,6 +223,8 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
             mute = bool(_has(tokens, MUTE))
             return ("Silenciar " if mute else "Activar ") + track, [{"cmd": "mute", "track": track, "on": mute}]
 
+    if words & HOLD:
+        return "Repetir hasta «seguimos»", [{"cmd": "hold"}]
     section = find_section(tokens, sections)
     repeat = bool(_has(tokens, REPEAT)) or _contains(tokens, ["otra", "vez"]) or _contains(tokens, ["de", "nuevo"]) \
         or _contains(tokens, ["vez", "mas"])

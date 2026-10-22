@@ -13,6 +13,8 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
 @pytest.mark.parametrize("said,commands", [
     ("Secuencia, repetimos el coro.", [{"cmd": "repeat"}]),                 # we are in the chorus
     ("Secuencia, otra vez", [{"cmd": "repeat"}]),
+    ("Secuencia, en bucle", [{"cmd": "hold"}]),
+    ("Secuencia, mantenemos el coro", [{"cmd": "hold"}]),
     ("Secuencia, una vez más", [{"cmd": "repeat"}]),
     ("Secuencia, repetimos el puente", [{"cmd": "goto", "section": "Puente"}]),   # elsewhere: go there
     ("Secuencia, vamos al puente", [{"cmd": "goto", "section": "Puente"}]),

@@ -11,7 +11,9 @@ a song (and its first section); every other locator opens a section.
 
 Timing rules, so changes land exactly on the beat without the script's 100 ms tick
 deciding when:
-- Repeat a section: Live's own arrangement loop is set to the section.
+- Repeat a section once: the same armed jump, back to the start of the section. Saying
+  it again during the repeat repeats it again.
+- Hold a section (repeat until released): Live's own arrangement loop.
 - Go to another section: the jump is armed and fired during the last bar of the
   current section through the locator's jump(), with global quantization at one bar,
   so Live performs it on the next downbeat, which is where the section ends.
@@ -128,8 +130,11 @@ class LinkCore(object):
                 self._relative(+1)
             elif cmd == "repeat":
                 self._repeat()
+            elif cmd == "hold":
+                self._hold()
             elif cmd == "release":
                 self.song.loop = False
+                self.pending = None
             elif cmd == "cancel":
                 self.pending = None
             elif cmd == "song":
@@ -148,8 +153,10 @@ class LinkCore(object):
             else:
                 return {"ok": False, "error": "comando desconocido: %s" % cmd, "state": self.state()}
         except Exception as e:      # never let a bad message break the show
-            self.log("SonarStageLink: %r -> %r" % (msg, e))
+            self.log("%r -> error: %r" % (msg, e))
             return {"ok": False, "error": str(e), "state": self.state()}
+        if cmd not in ("status", "setlist", "refresh"):
+            self.log("%r -> ok" % (msg,))         # Log.txt shows what each command did
         return {"ok": True, "state": self.state()}
 
     def _goto(self, msg):
@@ -201,6 +208,12 @@ class LinkCore(object):
         self._maybe_fire()
 
     def _repeat(self):
+        current = self.section_at(self.song.current_song_time)
+        if current is None or current.end == float("inf"):
+            raise ValueError("no hay una sección que repetir")
+        self._arm(current)
+
+    def _hold(self):
         current = self.section_at(self.song.current_song_time)
         if current is None or current.end == float("inf"):
             raise ValueError("no hay una sección que repetir")

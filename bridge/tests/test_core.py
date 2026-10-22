@@ -116,11 +116,44 @@ def test_section_names_resolve_within_the_current_song(setup):
     assert song.current_song_time == 448
 
 
-def test_repeat_loops_the_section_until_released(setup):
+def test_repeat_plays_the_section_once_more(setup):
+    core, song = setup
+    song.current_song_time = 26.0                     # in "Sección 2" (24–40)
+    song.continue_playing()
+    assert core.handle({"cmd": "repeat"})["state"]["pending"] == "Sección 2"
+    assert not song.loop                              # no loop: nothing to forget to release
+    run(core, song, 16)                               # end of the section → back to its start
+    assert song.jumps == [(40, 24)]
+    run(core, song, 16)                               # the second time it goes on
+    assert core.state()["section"] == "Sección 3" and len(song.jumps) == 1
+
+
+def test_repeat_twice_by_asking_again(setup):
     core, song = setup
     song.current_song_time = 26.0
-    song.continue_playing()                           # play from where the test put it
+    song.continue_playing()
     core.handle({"cmd": "repeat"})
+    run(core, song, 16)
+    core.handle({"cmd": "repeat"})                    # said again during the repeat
+    run(core, song, 16)
+    assert song.jumps == [(40, 24), (40, 24)]
+
+
+def test_release_cancels_a_repeat_and_a_hold(setup):
+    core, song = setup
+    song.current_song_time = 26.0
+    song.continue_playing()
+    core.handle({"cmd": "repeat"})
+    core.handle({"cmd": "release"})                   # "seguimos": changed our mind
+    run(core, song, 16)
+    assert song.jumps == [] and core.state()["section"] == "Sección 3"
+
+
+def test_hold_loops_the_section_until_released(setup):
+    core, song = setup
+    song.current_song_time = 26.0
+    song.continue_playing()
+    core.handle({"cmd": "hold"})
     assert (song.loop, song.loop_start, song.loop_length) == (True, 24, 16)
     run(core, song, 20)                               # passes the end of the section: loops back
     assert 24 <= song.current_song_time < 40

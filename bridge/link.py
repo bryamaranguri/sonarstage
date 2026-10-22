@@ -2,7 +2,9 @@
 """Talk to SonarStage Link from the Terminal (for testing; the app will do this).
 
     python3 link.py status
-    python3 link.py play | stop | repeat | release | next | cancel
+    python3 link.py play | stop | next | cancel
+    python3 link.py repeat                    (this section once more)
+    python3 link.py hold | release            (repeat until released)
     python3 link.py goto "Sección 3"          (in the current song, at the end of this section)
     python3 link.py song 2 | next-song
     python3 link.py mute "Bajo" | unmute "Bajo"
@@ -51,7 +53,7 @@ def main(argv):
         print(__doc__)
         return 1
     cmd, args = argv[0], argv[1:]
-    simple = {"status": "status", "play": "play", "stop": "stop", "repeat": "repeat", "release": "release",
+    simple = {"status": "status", "play": "play", "stop": "stop", "repeat": "repeat", "hold": "hold", "release": "release",
               "next": "next_section", "cancel": "cancel", "next-song": "next_song"}
     if cmd == "watch":
         try:
