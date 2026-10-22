@@ -50,15 +50,18 @@ NEXT = {"siguiente", "proxima", "proximo", "next"}
 PREVIOUS = {"anterior", "previous", "pasada", "atras"}
 LAST = {"ultima", "ultimo", "last"}
 SONG = {"cancion", "song", "tema"}
-MUTE = {"silencia", "silenciar", "silenciamos", "mutea", "mutear", "apaga", "apagar", "quita",
-        "quitar", "saca", "sacar", "calla", "mute"}
+# Mute and unmute change what the audience hears: exact words only, never "close enough"
+# ("desactivar" is 82 % like "activar"). Both kinds in one phrase -> refused.
+MUTE = {"silencia", "silenciar", "silenciamos", "mutea", "mutear", "muteamos", "motear", "apaga",
+        "apagar", "apagamos", "quita", "quitar", "quitamos", "saca", "sacar", "calla", "mute",
+        "desactiva", "desactivar", "desactivamos", "desactivame"}
 UNMUTE = {"activa", "activar", "activamos", "prende", "prender", "enciende", "desmutea", "pon",
           "suena", "unmute", "devuelve", "regresa"}
 HOLD = {"bucle", "loop", "mantenemos", "manten", "mantener", "mantengamos", "congela", "hold"}
 REPEAT = {"repite", "repetimos", "repetir", "repitan", "repeat", "again"}
 RELEASE = {"seguimos", "sigue", "suelta", "soltamos", "continua", "continuamos", "continue",
            "avanza", "avanzamos", "salimos", "release"}
-PLAY = {"dale", "play", "arranca", "arrancamos", "empieza", "empezamos", "comienza", "comenzamos",
+PLAY = {"dale", "dali", "play", "arranca", "arrancamos", "empieza", "empezamos", "comienza", "comenzamos",
         "inicia", "iniciamos", "adelante"}
 
 
@@ -108,10 +111,15 @@ def after_wake_word(tokens, wake_words=WAKE_WORDS, within=3):
     return None if last is None else tokens[last + 1:]
 
 
+def wake_rest(text, wake_words=WAKE_WORDS):
+    """What follows the wake word ("" if nothing), or None if the phrase does not open with it."""
+    rest = after_wake_word(normalize(text), wake_words)
+    return None if rest is None else " ".join(rest)
+
+
 def is_wake_only(text, wake_words=WAKE_WORDS):
     """Just "Secuencia": the order comes in the next phrase (people pause after it)."""
-    rest = after_wake_word(normalize(text), wake_words)
-    return rest is not None and not rest
+    return wake_rest(text, wake_words) == ""
 
 
 def _has(tokens, vocabulary):
@@ -217,11 +225,15 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
             return song[0] + " y play", song[1] + [{"cmd": "play"}]
         return song
 
-    if _has(tokens, MUTE | UNMUTE):
+    if words & (MUTE | UNMUTE):
         track = find_track(tokens, tracks)
         if track:
-            mute = bool(_has(tokens, MUTE))
+            if words & MUTE and words & UNMUTE:
+                return "No entendí si activar o silenciar %s" % track, []
+            mute = bool(words & MUTE)
             return ("Silenciar " if mute else "Activar ") + track, [{"cmd": "mute", "track": track, "on": mute}]
+    elif _has(tokens, MUTE | UNMUTE) and find_track(tokens, tracks):
+        return "No entendí si activar o silenciar", []          # a near miss on a mute verb
 
     if words & HOLD:
         return "Repetir hasta «seguimos»", [{"cmd": "hold"}]

@@ -36,6 +36,10 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
     ("Secuencia, silencia la guitarra", [{"cmd": "mute", "track": "Guitarra eléctrica", "on": True}]),
     ("Secuencia, activa el bajo", [{"cmd": "mute", "track": "Bajo", "on": False}]),
     ("Secuencia, quita la guía", [{"cmd": "mute", "track": "Guía", "on": True}]),
+    ("Secuencia. Desactivar la batería.", [{"cmd": "mute", "track": "Batería", "on": True}]),   # was read as "activar"
+    ("Secuencia desactivar batería", [{"cmd": "mute", "track": "Batería", "on": True}]),
+    ("secuencia, motear batería.", [{"cmd": "mute", "track": "Batería", "on": True}]),
+    ("Secuencia, Dali.", [{"cmd": "play"}]),
     # as Whisper wrote them with Bryam's mic
     ("Seguencia, repetir el coro", [{"cmd": "repeat"}]),
     ("Se cuesta, ir al final", [{"cmd": "goto", "section": "Final"}]),
@@ -69,6 +73,12 @@ def test_para_stops_only_as_the_first_word():
     assert parse("Secuencia, vamos para el coro", SECTIONS)[1] == [{"cmd": "goto", "section": "Coro"}]
 
 
+def test_mute_verbs_are_never_guessed():
+    # nothing that changes what is heard is done on a guess
+    assert parse("Secuencia, activa y silencia la batería", SECTIONS, TRACKS)[1] == []
+    assert parse("Secuencia, desactivo la batería", SECTIONS, TRACKS)[1] == []    # near miss: refused
+
+
 def test_without_wake_word_for_tests():
     assert parse("Puente", SECTIONS, wake_words=())[1] == [{"cmd": "goto", "section": "Puente"}]
 
@@ -96,7 +106,7 @@ def test_segmenter_cuts_speech_over_bleed():
     assert len(found) == 2
     (s1, a1), (s2, a2) = found
     assert s1 == pytest.approx(3.0 - 0.3, abs=0.1)              # with 300 ms before it
-    assert len(a1) / SR == pytest.approx(1.0 + 0.3 + 0.6, abs=0.15)   # + 600 ms after
+    assert len(a1) / SR == pytest.approx(1.0 + 0.3 + 0.4, abs=0.15)   # + 400 ms after
     assert s2 == pytest.approx(6.0 - 0.3, abs=0.1)
 
 
@@ -144,7 +154,7 @@ def test_listen_resamples_interface_rate():
     stream = [np.concatenate([np.zeros(sr, np.float32) + 1e-4, loud, np.zeros(sr, np.float32) + 1e-4])]
     seen = []
     listen(iter(stream), sr, lambda a, p: seen.append(len(a)) or "", lambda: Context(), out=lambda s: None)
-    assert seen and seen[0] / 16000 == pytest.approx(1.9, abs=0.15)
+    assert seen and seen[0] / 16000 == pytest.approx(1.7, abs=0.15)
 
 
 def test_wake_word_alone_then_the_order():
@@ -192,3 +202,23 @@ def test_songs(said, commands):
 
 def test_no_song_before_the_first():
     assert parse("Secuencia, canción anterior", SECTIONS, songs=SONGS, song_number=1) == ("Ya es la primera canción", [])
+
+
+def test_order_split_in_two_phrases():
+    # "Secuencia, vamos…" (pause) "…al coro"
+    quiet = noise(1, -60)
+    stream = [np.concatenate([quiet, tone(0.8, -20), quiet, tone(0.6, -20), quiet])]
+    said = iter(["Secuencia, vamos", "al coro"])
+    sent = []
+    listen(iter(stream), SR, lambda a, p: next(said), lambda: Context(SECTIONS, current="Verso 1"),
+           send=lambda m: sent.append(m) or {"ok": True}, out=lambda s: None)
+    assert sent[0] == {"cmd": "goto", "section": "Coro"}
+
+
+def test_record_keeps_each_phrase(tmp_path):
+    stream = [np.concatenate([noise(1, -60), tone(1, -20), noise(1, -60)])]
+    listen(iter(stream), SR, lambda a, p: "Secuencia, siguiente", lambda: Context(), dry_run=True,
+           out=lambda s: None, record=tmp_path)
+    rows = (tmp_path / "registro.tsv").read_text().splitlines()
+    assert len(rows) == 1 and rows[0].split("\t")[2:4] == ["Secuencia, siguiente", "Siguiente sección"]
+    assert len(list(tmp_path.glob("*.wav"))) == 1
