@@ -187,8 +187,9 @@ Funciones mínimas (paridad con AbleSet / Setlist / Playback, ver `referencias.m
 
 ### Puente con Ableton
 
-MIDI Remote Script en Python (`bridge/`), comunicado con la app por **JSON sobre UDP local**
-(`127.0.0.1:11010`; se eligió en vez de OSC porque ambos lados son nuestros). Lee y controla
+MIDI Remote Script en Python (`bridge/`), comunicado con la app por **líneas de JSON sobre TCP local**
+(`127.0.0.1:11010`; JSON en vez de OSC porque ambos lados son nuestros; TCP en vez de
+UDP porque el firewall de macOS descartaba las respuestas UDP). Lee y controla
 transporte, locators, loops, mute de pistas y posición. Se instala copiándolo a la
 carpeta de Remote Scripts del usuario (lo hace el asistente); el usuario solo lo
 elige en *Preferencias → Link/Tempo/MIDI → Superficie de control*.

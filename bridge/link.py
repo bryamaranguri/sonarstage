@@ -18,15 +18,19 @@ ADDR = ("127.0.0.1", 11010)
 
 
 def send(msg, timeout=1.0):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(timeout)
+    """One request over TCP: a line of JSON out, a line of JSON back."""
     try:
-        s.sendto(json.dumps(msg).encode("utf-8"), ADDR)
-        return json.loads(s.recvfrom(65507)[0].decode("utf-8"))
-    except socket.timeout:
+        with socket.create_connection(ADDR, timeout=timeout) as s:
+            s.sendall((json.dumps(msg) + "\n").encode("utf-8"))
+            data = b""
+            while not data.endswith(b"\n"):
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                data += chunk
+        return json.loads(data.decode("utf-8"))
+    except (ConnectionRefusedError, socket.timeout, OSError, ValueError):
         return {"ok": False, "error": "Ableton no responde: ¿está abierto con SonarStage Link activo?"}
-    finally:
-        s.close()
 
 
 def describe(st):

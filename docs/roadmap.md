@@ -19,7 +19,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Generador de show `.als` (clonado de la plantilla; perfiles de 2 y 4 salidas) — *pendiente: validar abriéndolo en Live*
 
 ## Fase 2 — Control en vivo
-- [x] Remote Script SonarStage Link (JSON por UDP local) — *pendiente: probar en Live*
+- [x] Remote Script SonarStage Link (JSON por TCP local) — *carga en Live 12.4.3; probando comandos*
 - [ ] Setlist al vuelo, avance y parada automáticos
 - [x] Loops y saltos cuantizados, extender sección (en el núcleo del puente)
 - [ ] Guía inteligente

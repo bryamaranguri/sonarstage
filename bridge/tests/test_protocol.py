@@ -1,4 +1,4 @@
-"""link.py ↔ a UDP server running LinkCore, the same exchange the Remote Script does."""
+"""link.py ↔ a TCP server running LinkCore, the same exchange the Remote Script does."""
 import json
 import os
 import socket
@@ -11,23 +11,32 @@ from SonarStageLink.core import LinkCore  # noqa: E402
 from test_core import CUES, FakeSong, Q_BAR  # noqa: E402
 
 
-def serve(core, sock, stop):
-    sock.settimeout(0.05)
+def serve(core, server, stop):
+    """Same exchange as surface.py: one JSON line in, one JSON line out, over TCP."""
+    server.settimeout(0.05)
     while not stop.is_set():
         try:
-            data, addr = sock.recvfrom(65507)
+            conn, _ = server.accept()
         except socket.timeout:
             continue
-        try:
-            reply = core.handle(json.loads(data.decode("utf-8")))
-        except ValueError as e:
-            reply = {"ok": False, "error": "mensaje inválido: %s" % e}
-        sock.sendto(json.dumps(reply).encode("utf-8"), addr)
+        with conn:
+            data = b""
+            while not data.endswith(b"\n"):
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+            try:
+                reply = core.handle(json.loads(data.decode("utf-8")))
+            except ValueError as e:
+                reply = {"ok": False, "error": "mensaje inválido: %s" % e}
+            conn.sendall((json.dumps(reply) + "\n").encode("utf-8"))
 
 
-def test_commands_over_udp(monkeypatch):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+def test_commands_over_tcp(monkeypatch):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
+    sock.listen(4)
     monkeypatch.setattr(link, "ADDR", sock.getsockname())
     song = FakeSong(CUES)
     stop = threading.Event()
@@ -49,7 +58,7 @@ def test_commands_over_udp(monkeypatch):
 
 
 def test_no_ableton_gives_a_clear_message(monkeypatch):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()
     s.close()                                                        # nobody listening there

@@ -50,8 +50,10 @@ python3 link.py autostop off           # no detenerse al llegar a la siguiente c
 
 ## Protocolo
 
-JSON por UDP en `127.0.0.1:11010` (solo esta Mac). Cada mensaje recibe respuesta al
-remitente con `{"ok", "error"?, "state"}`. Comandos: `status`, `refresh`, `play`
+**TCP** en `127.0.0.1:11010` (solo esta Mac): cada mensaje es una línea de JSON y recibe
+una línea de JSON con `{"ok", "error"?, "state"}`. Se usa TCP y no UDP porque en una Mac
+real el firewall descartaba las respuestas UDP hacia `python3`; por TCP la respuesta
+vuelve por la conexión que abrió el cliente. Comandos: `status`, `refresh`, `play`
 (`continue`), `stop`, `goto` (`section`, `any_song`), `next_section`, `repeat`,
 `release`, `cancel`, `song` (`number`), `next_song`, `mute` (`track`, `on`),
 `autostop` (`on`).
