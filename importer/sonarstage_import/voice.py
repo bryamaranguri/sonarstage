@@ -187,8 +187,12 @@ def mic_blocks(device, channel, sr):
     def callback(indata, frames, t, status):
         q.put(indata[:, channel - 1].copy())
 
+    extra = None
+    if sys.platform == "darwin":
+        # never touch the interface's settings: Ableton is using it for the show
+        extra = sd.CoreAudioSettings(change_device_parameters=False)
     with sd.InputStream(device=device, channels=channel, samplerate=sr, dtype="float32",
-                        blocksize=int(sr * 0.05), callback=callback):
+                        blocksize=int(sr * 0.05), callback=callback, extra_settings=extra):
         while True:
             yield q.get()
 
