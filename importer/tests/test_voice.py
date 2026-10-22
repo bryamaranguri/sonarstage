@@ -161,3 +161,14 @@ def test_wake_word_alone_then_the_order():
     assert sent[0] == {"cmd": "goto", "section": "Coro"}
     assert "te escucho" in lines[0]
     assert len([m for m in sent if m["cmd"] == "goto"]) == 1     # the third came too late: ignored
+
+
+def test_section_this_song_does_not_have():
+    holy = ["Intro", "Verso 1", "Pre coro", "Coro 1", "Verso 2", "Build", "Coro 2", "Tag", "Final"]
+    assert parse("secuencia vamos al puente", holy) == ("Esta canción no tiene Puente", [])
+    sent, lines = [], []
+    stream = [np.concatenate([noise(1, -60), tone(1, -20), noise(1, -60)])]
+    listen(iter(stream), SR, lambda a, p: "secuencia vamos al puente", lambda: Context(holy),
+           send=lambda m: sent.append(m) or {"ok": True}, out=lines.append)
+    assert sent == [{"cmd": "message", "text": "Voz: Esta canción no tiene Puente"}]
+    assert "✗" in lines[0]

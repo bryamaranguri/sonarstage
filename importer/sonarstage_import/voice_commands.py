@@ -33,6 +33,11 @@ SECTION_WORDS = {"chorus": "coro", "estribillo": "coro", "coros": "coro", "verse
                  "prechorus": "precoro", "ending": "final", "outro": "final", "interlude": "interludio",
                  "inicio": "intro", "introduccion": "intro"}
 
+# section words any song may have (names as label.py writes them, normalized)
+GENERIC_SECTIONS = {"intro": "Intro", "verso": "Verso", "precoro": "Pre coro", "coro": "Coro",
+                    "puente": "Puente", "instrumental": "Instrumental", "interludio": "Interludio",
+                    "tag": "Tag", "final": "Final", "build": "Build", "break": "Break", "vamp": "Vamp"}
+
 TRACK_WORDS = {"bateria": ("bateria", "drums", "bata", "bate"), "bajo": ("bajo", "bass"),
                "guitarra": ("guitarra", "guitar", "electrica", "guitarras"),
                "teclado": ("teclado", "teclados", "keys", "piano", "teclas"),
@@ -164,7 +169,7 @@ def _number(tokens):
 
 
 def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_WORDS):
-    """(description, [commands]) or None.
+    """(description, [commands]) or None. No commands: understood, but not possible here.
 
     sections: names in the current song; tracks: muteable tracks; songs: [(number, title)];
     current: name of the section playing. wake_words=() means no wake word is needed.
@@ -204,6 +209,10 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
         or _contains(tokens, ["vez", "mas"])
     if repeat and (section is None or _same_section(section, current)):
         return "Repetir" + (" " + current if current else ""), [{"cmd": "repeat"}]
+    if section is None:
+        missing = [GENERIC_SECTIONS[w] for w in _unglue(tokens, set(GENERIC_SECTIONS)) if w in GENERIC_SECTIONS]
+        if missing and sections:
+            return "Esta canción no tiene %s" % missing[0], []
     if section:
         shown = section[:1].upper() + section[1:]
         if _has(tokens, PLAY):

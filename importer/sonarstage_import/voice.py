@@ -165,6 +165,11 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
                 out("%s  «%s»  (%d ms)" % (where, text, ms))
                 continue
             label, commands = result
+            if not commands:
+                out("%s  «%s»  → ✗ %s" % (where, text, label))
+                if not dry_run:
+                    send({"cmd": "message", "text": "Voz: " + label})
+                continue
             if dry_run:
                 out("%s  «%s»  → %s  (%d ms, sin enviar)" % (where, text, label, ms))
                 continue
