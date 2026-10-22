@@ -17,12 +17,12 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
     ("Secuencia, repetimos el puente", [{"cmd": "goto", "section": "Puente"}]),   # elsewhere: go there
     ("Secuencia, vamos al puente", [{"cmd": "goto", "section": "Puente"}]),
     ("Secuencia, al verso dos", [{"cmd": "goto", "section": "Verso 2"}]),
-    ("Secuencia, vamos al verso", [{"cmd": "goto", "section": "verso"}]),   # the bridge picks the next one
+    ("Secuencia, vamos al verso", [{"cmd": "goto", "section": "Verso"}]),   # the bridge picks the next one
     ("Secuencias, vamos al pre-coro", [{"cmd": "goto", "section": "Pre coro"}]),
-    ("Secuencia, chorus", [{"cmd": "goto", "section": "coro"}]),
-    ("Secuencia, ¡Perso!", [{"cmd": "goto", "section": "verso"}]),          # Whisper's take on "Verso"
+    ("Secuencia, chorus", [{"cmd": "goto", "section": "Coro"}]),
+    ("Secuencia, ¡Perso!", [{"cmd": "goto", "section": "Verso"}]),          # Whisper's take on "Verso"
     ("Secuencia, instrumentar", [{"cmd": "goto", "section": "Instrumental"}]),
-    ("Secuencia, empezamos desde el coro", [{"cmd": "goto", "section": "coro"}, {"cmd": "play"}]),
+    ("Secuencia, empezamos desde el coro", [{"cmd": "goto", "section": "Coro"}, {"cmd": "play"}]),
     ("Secuencia, siguiente", [{"cmd": "next_section"}]),
     ("Secuencia, seguimos", [{"cmd": "release"}]),
     ("Secuencia, cancela", [{"cmd": "cancel"}]),
@@ -38,6 +38,12 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
     ("Seguencia, repetir el coro", [{"cmd": "repeat"}]),
     ("Se cuesta, ir al final", [{"cmd": "goto", "section": "Final"}]),
     ("Secuencia, Repedir con...", [{"cmd": "repeat"}]),
+    ("Se cuencia y ir al coro.", [{"cmd": "goto", "section": "Coro"}]),
+    ("secuencia y real final.", [{"cmd": "goto", "section": "Final"}]),
+    ("Se cuente ir al verso 1.", [{"cmd": "goto", "section": "Verso 1"}]),
+    ("secuencia y racoro.", [{"cmd": "goto", "section": "Coro"}]),          # "ir al coro", glued
+    ("secuencia y reprecoro.", [{"cmd": "goto", "section": "Pre coro"}]),   # "ir a precoro", glued
+    ("secuencia, alcoro", [{"cmd": "goto", "section": "Coro"}]),
 ])
 def test_phrases(said, commands):
     result = parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1")
@@ -58,7 +64,7 @@ def test_ignored(said):
 
 
 def test_para_stops_only_as_the_first_word():
-    assert parse("Secuencia, vamos para el coro", SECTIONS)[1] == [{"cmd": "goto", "section": "coro"}]
+    assert parse("Secuencia, vamos para el coro", SECTIONS)[1] == [{"cmd": "goto", "section": "Coro"}]
 
 
 def test_without_wake_word_for_tests():
@@ -109,7 +115,7 @@ def test_listen_sends_commands_and_reports_them():
     ctx = Context(SECTIONS, TRACKS, SONGS, current="Verso 1")
     listen(iter(stream), SR, lambda audio, prompt: "Secuencia, vamos al coro", lambda: ctx, send=send,
            out=lines.append)
-    assert sent == [{"cmd": "goto", "section": "coro"}, {"cmd": "message", "text": "Voz: Ir a Coro"}]
+    assert sent == [{"cmd": "goto", "section": "Coro"}, {"cmd": "message", "text": "Voz: Ir a Coro"}]
     assert "✓" in lines[0]
 
 
@@ -152,6 +158,6 @@ def test_wake_word_alone_then_the_order():
 
     listen(iter(stream), SR, lambda a, p: next(said), lambda: Context(SECTIONS, current="Verso 1"),
            send=send, out=lines.append)
-    assert sent[0] == {"cmd": "goto", "section": "coro"}
+    assert sent[0] == {"cmd": "goto", "section": "Coro"}
     assert "te escucho" in lines[0]
     assert len([m for m in sent if m["cmd"] == "goto"]) == 1     # the third came too late: ignored

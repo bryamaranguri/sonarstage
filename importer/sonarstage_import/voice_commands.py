@@ -29,8 +29,8 @@ NUMBERS = {"uno": 1, "una": 1, "primer": 1, "primero": 1, "primera": 1, "one": 1
 
 # spoken word -> the word used in section names (names come from label.py, in Spanish)
 SECTION_WORDS = {"chorus": "coro", "estribillo": "coro", "coros": "coro", "verse": "verso",
-                 "estrofa": "verso", "versos": "verso", "bridge": "puente", "precoro": "pre coro",
-                 "prechorus": "pre coro", "ending": "final", "outro": "final", "interlude": "interludio",
+                 "estrofa": "verso", "versos": "verso", "bridge": "puente", "precoro": "precoro",
+                 "prechorus": "precoro", "ending": "final", "outro": "final", "interlude": "interludio",
                  "inicio": "intro", "introduccion": "intro"}
 
 TRACK_WORDS = {"bateria": ("bateria", "drums", "bata", "bate"), "bajo": ("bajo", "bass"),
@@ -116,14 +116,31 @@ def _has(tokens, vocabulary):
     return False
 
 
+def _unglue(tokens, known):
+    """Whisper glues the article to the name: "racoro" (a coro), "reprecoro" (ir a
+    precoro), "alcoro". A word that ends with a section word is that word."""
+    out = []
+    for w in tokens:
+        if w not in known:
+            tails = [k for k in known if len(k) >= 4 and w.endswith(k)]
+            if tails:
+                w = max(tails, key=len)
+        out.append(w)
+    return out
+
+
 def find_section(tokens, sections):
     """The section named in `tokens`: an exact name ("Verso 2") beats the bare word
-    ("coro", which the bridge resolves to the next "Coro 1"/"Coro 2")."""
+    ("Coro", which the bridge resolves to the next "Coro 1"/"Coro 2")."""
+    known = {w for name in sections for w in _section_tokens(name) if not w.isdigit()}
+    tokens = _unglue(tokens, known)
     best = None
     for name in sections:
         full = _section_tokens(name)
-        base = full[:-1] if len(full) > 1 and full[-1].isdigit() else full
-        for seq, value in ((full, name), (base, " ".join(base))):
+        numbered = len(full) > 1 and full[-1].isdigit()
+        base = full[:-1] if numbered else full
+        bare = re.sub(r"\s+\d+$", "", name.strip()) if numbered else name
+        for seq, value in ((full, name), (base, bare)):
             if _contains(tokens, seq, fuzzy=True) and (best is None or len(seq) > best[0]):
                 best = (len(seq), value)
     return best[1] if best else None
