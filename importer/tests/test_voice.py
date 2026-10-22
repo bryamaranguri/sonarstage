@@ -40,6 +40,11 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
     ("Secuencia desactivar batería", [{"cmd": "mute", "track": "Batería", "on": True}]),
     ("secuencia, motear batería.", [{"cmd": "mute", "track": "Batería", "on": True}]),
     ("Secuencia, Dali.", [{"cmd": "play"}]),
+    ("banda vamos al coro secuencia vamos al coro", [{"cmd": "goto", "section": "Coro"}]),
+    ("Sequencia, silencio la batería.", [{"cmd": "mute", "track": "Batería", "on": True}]),
+    ("Su canción desactivó la batería.", None),                     # no wake word: nothing
+    ("Secuencia, activo la botería.", [{"cmd": "mute", "track": "Batería", "on": False}]),
+    ("Secuencia. Desactiva la teoría.", [{"cmd": "mute", "track": "Batería", "on": True}]),
     # as Whisper wrote them with Bryam's mic
     ("Seguencia, repetir el coro", [{"cmd": "repeat"}]),
     ("Se cuesta, ir al final", [{"cmd": "goto", "section": "Final"}]),
@@ -53,16 +58,19 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
 ])
 def test_phrases(said, commands):
     result = parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1")
-    assert result is not None and result[1] == commands
+    if commands is None:
+        assert result is None
+    else:
+        assert result is not None and result[1] == commands
 
 
 @pytest.mark.parametrize("said", [
     "Vamos al coro",                                # no wake word
-    "Hay fiesta, hay vida, secuencia del coro",     # wake word not at the start (a lyric)
     "Secuencia",                                    # nothing after it
     "Secuencia, qué bonito",                        # nothing we know
     "Secuencia, silencia el violín",                # no such track
     "Su presencia, vamos al coro",                  # rhymes with the wake word
+    "Secuencia, con tu poder tu haces nuevo el coro de mi corazón",  # a lyric after an imagined wake word
     "Tu presencia es real, vamos al coro",
 ])
 def test_ignored(said):
@@ -76,7 +84,7 @@ def test_para_stops_only_as_the_first_word():
 def test_mute_verbs_are_never_guessed():
     # nothing that changes what is heard is done on a guess
     assert parse("Secuencia, activa y silencia la batería", SECTIONS, TRACKS)[1] == []
-    assert parse("Secuencia, desactivo la batería", SECTIONS, TRACKS)[1] == []    # near miss: refused
+    assert parse("Secuencia, desactiv la batería", SECTIONS, TRACKS)[1] == []     # near miss: refused
 
 
 def test_without_wake_word_for_tests():

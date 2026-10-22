@@ -29,8 +29,10 @@ from .voice_commands import WAKE_WORDS, parse, wake_rest
 SR = 16000
 ARMED_SECONDS = 4.0      # after a lone "Secuencia", the next phrase within this time is the order
 GROUPS = {"EN VIVO", "SECUENCIA", "CUES", "CONTROL"}
-# No initial prompt for Whisper: over music it "hears" the prompt itself (measured: section
-# names and "Siguiente" came out of a song with no speech). The words are common Spanish.
+# Whisper's prompt is only the wake word. A prompt with the whole vocabulary made it "hear"
+# section names and "Siguiente" over music with no speech; "Secuencia." alone raised the
+# recorded orders understood from 77 % to 85 % with no false alarms (docs/hallazgos).
+PROMPT = "Secuencia."
 
 
 class Segmenter(object):
@@ -133,21 +135,48 @@ class Context(object):
         return cls([s["name"] for s in song["sections"][1:]], ["Click", "Guía", "Batería", "Bajo", "Guitarra eléctrica"])
 
     def prompt(self):
-        return None
+        return PROMPT
+
+
+class Interpreter(object):
+    """Text of each phrase -> what to do, with the wake word memory between phrases.
+
+    A phrase that opens with the wake word but is not a whole order yet ("Secuencia…",
+    "Secuencia, vamos…") waits ARMED_SECONDS for the rest. Shared by the live loop and by
+    voice_bench, so what is measured is exactly what runs on stage.
+    """
+
+    def __init__(self, wake_words=WAKE_WORDS):
+        self.wake_words = wake_words
+        self.armed_until, self.prefix = None, ""
+
+    def hear(self, text, start, end, ctx):
+        """(kind, label, commands): kind is 'ignored', 'armed', 'refused' or 'command'."""
+        if not text:
+            return "ignored", "", []
+        armed = self.armed_until is not None and start <= self.armed_until
+        said = (self.prefix + " " + text).strip() if armed else text
+        rest = None if armed or not self.wake_words else wake_rest(text, self.wake_words)
+        result = parse(said, ctx.sections, ctx.tracks, ctx.songs, ctx.current,
+                       () if armed else self.wake_words, song_number=ctx.song_number)
+        self.armed_until, self.prefix = None, ""
+        if result is None and rest is not None:
+            self.armed_until, self.prefix = end + ARMED_SECONDS, rest
+            return "armed", "…", []
+        if result is None:
+            return "ignored", "", []
+        label, commands = result
+        return ("command" if commands else "refused"), label, commands
 
 
 def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False,
            send=link_client.send, out=print, record=None):
     """Main loop. `blocks` yields mono float arrays at `sr`; `context` returns a Context.
-
-    A phrase that starts with the wake word but is not a whole order yet ("Secuencia…",
-    "Secuencia, vamos…") waits ARMED_SECONDS for the rest. `record` (a folder) keeps every
-    phrase as a WAV plus a line in registro.tsv, to measure engines on real voices.
-    """
+    `record` (a folder) keeps every phrase as a WAV plus a line in registro.tsv."""
     seg = Segmenter(sr)
     up, down = SR // gcd(SR, sr), sr // gcd(SR, sr)
-    armed_until, prefix, n = None, "", 0
-    log = None
+    interpreter = Interpreter(wake_words)
+    n, log = 0, None
     if record:
         Path(record).mkdir(parents=True, exist_ok=True)
         log = open(Path(record) / "registro.tsv", "a", encoding="utf-8")
@@ -161,34 +190,20 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
             t0 = time.monotonic()
             text = transcribe(utt, ctx.prompt())
             ms = (time.monotonic() - t0) * 1000 + seg.hang_frames * 20     # after you stop talking
+            kind, label, commands = interpreter.hear(text, start, end, ctx)
             where = "%7.1f s" % start
-            label = ""
-            try:
-                if not text:
-                    continue
-                armed = armed_until is not None and start <= armed_until
-                said = (prefix + " " + text).strip() if armed else text
-                rest = None if armed or not wake_words else wake_rest(text, wake_words)
-                result = parse(said, ctx.sections, ctx.tracks, ctx.songs, ctx.current,
-                               () if armed else wake_words, song_number=ctx.song_number)
-                armed_until, prefix = None, ""
-                if result is None and rest is not None:
-                    armed_until, prefix = end + ARMED_SECONDS, rest     # wait for the rest
-                    out("%s  «%s»  … te escucho" % (where, text))
-                    label = "…"
-                    continue
-                if result is None:
+            if kind == "armed":
+                out("%s  «%s»  … te escucho" % (where, text))
+            elif kind == "ignored":
+                if text:
                     out("%s  «%s»  (%d ms)" % (where, text, ms))
-                    continue
-                label, commands = result
-                if not commands:
-                    out("%s  «%s»  → ✗ %s" % (where, text, label))
-                    if not dry_run:
-                        send({"cmd": "message", "text": "Voz: " + label})
-                    continue
-                if dry_run:
-                    out("%s  «%s»  → %s  (%d ms, sin enviar)" % (where, text, label, ms))
-                    continue
+            elif kind == "refused":
+                out("%s  «%s»  → ✗ %s" % (where, text, label))
+                if not dry_run:
+                    send({"cmd": "message", "text": "Voz: " + label})
+            elif dry_run:
+                out("%s  «%s»  → %s  (%d ms, sin enviar)" % (where, text, label, ms))
+            else:
                 errors = []
                 for cmd in commands:
                     r = send(cmd)
@@ -200,14 +215,13 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
                 else:
                     out("%s  «%s»  → %s ✓  (%d ms)" % (where, text, label, ms))
                     send({"cmd": "message", "text": "Voz: " + label})
-            finally:
-                if log is not None:
-                    n += 1
-                    name = "%s-%03d.wav" % (time.strftime("%Y%m%d-%H%M%S"), n)
-                    import soundfile as sf
-                    sf.write(str(Path(record) / name), utt, SR, subtype="PCM_16")
-                    log.write("%s\t%.2f\t%s\t%s\t%d\n" % (name, start, text, label, ms))
-                    log.flush()
+            if log is not None:
+                n += 1
+                name = "%s-%03d.wav" % (time.strftime("%Y%m%d-%H%M%S"), n)
+                import soundfile as sf
+                sf.write(str(Path(record) / name), utt, SR, subtype="PCM_16")
+                log.write("%s\t%.2f\t%s\t%s\t%d\n" % (name, start, text, label, ms))
+                log.flush()
 
 
 def file_blocks(path, block_s=0.05):

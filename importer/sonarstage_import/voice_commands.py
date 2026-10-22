@@ -54,8 +54,9 @@ SONG = {"cancion", "song", "tema"}
 # ("desactivar" is 82 % like "activar"). Both kinds in one phrase -> refused.
 MUTE = {"silencia", "silenciar", "silenciamos", "mutea", "mutear", "muteamos", "motear", "apaga",
         "apagar", "apagamos", "quita", "quitar", "quitamos", "saca", "sacar", "calla", "mute",
-        "desactiva", "desactivar", "desactivamos", "desactivame"}
-UNMUTE = {"activa", "activar", "activamos", "prende", "prender", "enciende", "desmutea", "pon",
+        "desactiva", "desactivar", "desactivamos", "desactivame", "desactivo", "desactivada",
+        "silencio", "silenci", "silenciala", "apagala", "quitala"}
+UNMUTE = {"activa", "activar", "activamos", "activo", "activala", "prende", "prender", "enciende", "desmutea", "pon",
           "suena", "unmute", "devuelve", "regresa"}
 HOLD = {"bucle", "loop", "mantenemos", "manten", "mantener", "mantengamos", "congela", "hold"}
 REPEAT = {"repite", "repetimos", "repetir", "repitan", "repeat", "again"}
@@ -98,12 +99,12 @@ def _is_wake(word, wake_words, ratio=0.8):
                for k in wake_words)
 
 
-def after_wake_word(tokens, wake_words=WAKE_WORDS, within=3):
-    """Tokens after the wake word, or None if it was not said. It has to open the phrase
-    (first `within` words): a sung line that happens to contain it does not count.
-    Whisper sometimes splits it ("Se cuesta"), so two words together also count."""
+def after_wake_word(tokens, wake_words=WAKE_WORDS, within=None):
+    """Tokens after the (last) wake word, or None if it was not said. Directors talk to the
+    band first: "Banda, vamos al coro. Secuencia, vamos al coro". Whisper sometimes splits
+    it ("Se cuesta"), so two words together also count. `within` limits it to the first words."""
     last = None
-    for i in range(min(within, len(tokens))):
+    for i in range(len(tokens) if within is None else min(within, len(tokens))):
         if _is_wake(tokens[i], wake_words):
             last = i
         elif i + 1 < len(tokens) and _is_wake(tokens[i] + tokens[i + 1], wake_words, 0.7):
@@ -164,6 +165,10 @@ def find_section(tokens, sections):
 
 
 def find_track(tokens, tracks):
+    """The track named: exact words first, then close ones ("botería" for "batería"). The
+    verb (mute/unmute) is never guessed; the track can be, among a handful of names, as
+    long as only one of them is close."""
+    names = []
     for name in tracks:
         words = set(_section_tokens(name))
         spoken = set()
@@ -171,9 +176,42 @@ def find_track(tokens, tracks):
             if key in words:
                 spoken.update(aliases)
         spoken.update(w for w in words if len(w) >= 4)
+        names.append((name, spoken))
+    for name, spoken in names:
         if spoken & set(tokens):
             return name
-    return None
+    close = [name for name, spoken in names
+             if any(len(w) >= 5 and len(a) >= 5 and difflib.SequenceMatcher(None, w, a).ratio() >= 0.75
+                    for w in tokens for a in spoken)]
+    return close[0] if len(close) == 1 else None
+
+
+FILLER = {"al", "a", "la", "el", "ir", "vamos", "de", "del", "desde", "con", "en", "y", "por", "favor",
+          "otra", "vez", "mas", "nuevo", "seccion", "parte", "ahora", "ya", "las", "los", "un", "le", "lo",
+          "porfa", "banda", "hasta", "todo", "todos", "esto", "eso"}
+
+
+def _vocabulary(sections, tracks, songs):
+    words = set(FILLER) | set(SECTION_WORDS.values()) | set(GENERIC_SECTIONS)
+    for group in (CANCEL, STOP, NEXT, PREVIOUS, LAST, SONG, MUTE, UNMUTE, HOLD, REPEAT, RELEASE, PLAY):
+        words |= group
+    for aliases in TRACK_WORDS.values():
+        words |= set(aliases)
+    for name in list(sections) + list(tracks) + [t for _, t in songs]:
+        words |= set(normalize(name))
+    return words
+
+
+def looks_like_an_order(tokens, sections=(), tracks=(), songs=()):
+    """Half or more of the words belong to the orders' vocabulary (close ones count): a
+    sung line after a "Secuencia" Whisper imagined over the music does not."""
+    if not tokens:
+        return False
+    vocab = _vocabulary(sections, tracks, songs)
+    known = sum(1 for w in tokens if w in vocab or w.isdigit()
+                or any(len(v) >= 4 and w.endswith(v) for v in vocab)             # "alcoro"
+                or (len(w) >= 5 and any(len(v) >= 5 and _like(w, v) for v in vocab)))
+    return known * 2 >= len(tokens)
 
 
 def _number(tokens):
@@ -192,7 +230,7 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
         tokens = after_wake_word(tokens, wake_words)
         if not tokens:
             return None
-    if not tokens:
+    if not tokens or not looks_like_an_order(tokens, sections, tracks, songs):
         return None
     words = set(tokens)
 

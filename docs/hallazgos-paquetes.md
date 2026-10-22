@@ -257,3 +257,31 @@ decirlo unos tiempos antes.
 - Whisper escribió «Seguencia», «Se cuesta» y «Repedir». Se aceptan parecidos, pero la
   palabra de activación tiene que empezar como «se…»: «presencia» rima y aparece en
   muchas letras de adoración («Su presencia», «tu presencia»).
+
+### Grabaciones de Bryam (22 de octubre)
+
+169 frases grabadas con `voice.py --record` en `material/voz` (no van al repositorio):
+84 órdenes de la lista, dichas 5–6 veces, con y sin pausa y a veces con la secuencia
+sonando, y 82 frases de habla normal a la banda («en negras», «coros en terceras»,
+«atentos a la señal del pastor»…). `esperado.tsv` marca qué orden era cada una, y
+`voice_bench` las pasa por cada motor con la misma lógica que corre en vivo.
+
+| Motor / ajuste | Órdenes bien | Mal (otra orden) | Falsas alarmas | Reconocer |
+|---|---|---|---|---|
+| Whisper small, CPU, sin pista | 52/84 (62 %) | 0 | 0/82 | ~960 ms* |
+| + «Secuencia» en cualquier lugar, «silencio», pista de pistas parecidas | 65/84 (77 %) | 0 | 0/82 | |
+| + pista «Secuencia.» | **71/84 (85 %)** | **0** | **0/82** | ~970 ms* |
+
+\* en el entorno de pruebas; en la M4 Max, ~800 ms. En vivo se suman 400 ms de espera.
+
+- Con música, Whisper escribe la palabra de activación como «Se coincide», «Se
+  coincida», «De concierto», «Su canción»: es la causa de casi todo lo no entendido.
+- Los directores le hablan primero a la banda: «Banda, vamos al coro. Secuencia, vamos
+  al coro». La palabra de activación ahora vale en cualquier lugar de la frase (se toma
+  lo que sigue a la última).
+- La pista «Secuencia.» hizo que Whisper la «oyera» una vez sobre la música de *Holy
+  Forever*. No pasó nada, pero desde entonces lo que sigue a «Secuencia» tiene que
+  parecerse a una orden: al menos la mitad de las palabras deben ser del vocabulario.
+- Silenciar y activar no aceptan parecidos en el verbo; el nombre de la pista sí
+  («botería» → Batería) si solo una pista se parece.
+- Pendiente: medir en la Mac Whisper en la gráfica (MLX) y Vosk con vocabulario cerrado.
