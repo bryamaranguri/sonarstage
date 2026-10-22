@@ -49,7 +49,7 @@ El cambio de tono necesita un ffmpeg compilado con Rubber Band (el de Homebrew l
 
 ```bash
 cd ~/Ing/01-proj/sonar-stage/sonarstage/importer
-python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate   # Python 3.9 o más reciente
 pip install -r requirements.txt
 which ffmpeg || brew install ffmpeg      # el de Homebrew trae Rubber Band (cambio de tono)
 ```

@@ -1,7 +1,7 @@
 numpy>=1.24
 scipy>=1.10
 pyloudnorm>=0.1.1
-unrar-cffi>=0.3   # RAR packs; ZIP is handled by the standard library
+# RAR packs: bsdtar (included in macOS). Optional fallback: pip install unrar-cffi
 # Requires ffmpeg / ffprobe on PATH (bundled inside the app for end users)
 soundfile>=0.12
 jsonschema>=4

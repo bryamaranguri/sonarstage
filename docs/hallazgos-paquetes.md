@@ -16,7 +16,9 @@ Dos paquetes descargados por Bryam: *Alegras mis días* (Su Presencia) y *Holy F
   decodificador ingenuo desplazaría todos los stems 60 ms respecto a un click en WAV.
 - Llegan nombres nuevos: *Click Track, Cues, BGVS, Vox Chop, Aux Drums, Loop, Oohs,
   Synth Bass, Wurli*. Ya están en `roles.py` y en sus pruebas.
-- Se necesita leer RAR, no solo ZIP (`unrar-cffi`).
+- Se necesita leer RAR, no solo ZIP. Se usa `bsdtar`, que viene con macOS (no hay que
+  instalar nada); `unrar-cffi` queda como respaldo porque no tiene versión instalable
+  para Mac. Con *Alegras mis días*, los dos extraen archivos idénticos (mismo MD5).
 
 ## Tempo y compás
 
