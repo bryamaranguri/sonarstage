@@ -46,6 +46,8 @@ TRACK_WORDS = {"bateria": ("bateria", "drums", "bata", "bate"), "bajo": ("bajo",
 CANCEL = {"cancela", "cancelar", "cancelalo", "olvidalo", "olvida", "cancel", "anula"}
 STOP = {"para", "paramos", "parar", "alto", "detente", "deten", "stop", "corta", "cortamos"}
 NEXT = {"siguiente", "proxima", "proximo", "next"}
+PREVIOUS = {"anterior", "previous", "pasada", "atras"}
+LAST = {"ultima", "ultimo", "last"}
 SONG = {"cancion", "song", "tema"}
 MUTE = {"silencia", "silenciar", "silenciamos", "mutea", "mutear", "apaga", "apagar", "quita",
         "quitar", "saca", "sacar", "calla", "mute"}
@@ -168,11 +170,12 @@ def _number(tokens):
     return next((int(w) for w in tokens if w.isdigit()), None)
 
 
-def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_WORDS):
+def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_WORDS, song_number=None):
     """(description, [commands]) or None. No commands: understood, but not possible here.
 
     sections: names in the current song; tracks: muteable tracks; songs: [(number, title)];
-    current: name of the section playing. wake_words=() means no wake word is needed.
+    current: name of the section playing; song_number: the song we are in.
+    wake_words=() means no wake word is needed.
     """
     tokens = normalize(text)
     if wake_words:
@@ -188,15 +191,29 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
     if tokens[0] in STOP:
         return "Parar", [{"cmd": "stop"}]
 
+    song = None
     if _has(tokens, SONG) or ("next" in words and "song" in words):
         if _has(tokens, NEXT):
-            return "Siguiente canción", [{"cmd": "next_song"}]
-        n = _number(tokens)
-        if n is not None:
-            return "Canción %d" % n, [{"cmd": "song", "number": n}]
-    for number, title in songs:
-        if len(normalize(title)) >= 2 and _contains(tokens, normalize(title)[:2]):
-            return "Canción %d · %s" % (number, title), [{"cmd": "song", "number": number}]
+            song = "Siguiente canción", [{"cmd": "next_song"}]
+        elif _has(tokens, PREVIOUS):
+            if song_number and song_number > 1:
+                song = "Canción anterior", [{"cmd": "song", "number": song_number - 1}]
+            else:
+                return "Ya es la primera canción", []
+        elif _has(tokens, LAST) and songs:
+            song = "Última canción", [{"cmd": "song", "number": songs[-1][0]}]
+        elif _number(tokens) is not None:
+            n = _number(tokens)
+            song = "Canción %d" % n, [{"cmd": "song", "number": n}]
+    if song is None:
+        for number, title in songs:
+            if len(normalize(title)) >= 2 and _contains(tokens, normalize(title)[:2]):
+                song = "Canción %d · %s" % (number, title), [{"cmd": "song", "number": number}]
+                break
+    if song is not None:
+        if _has(tokens, PLAY):                      # "empezamos con la primera canción"
+            return song[0] + " y play", song[1] + [{"cmd": "play"}]
+        return song
 
     if _has(tokens, MUTE | UNMUTE):
         track = find_track(tokens, tracks)

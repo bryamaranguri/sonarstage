@@ -172,3 +172,21 @@ def test_section_this_song_does_not_have():
            send=lambda m: sent.append(m) or {"ok": True}, out=lines.append)
     assert sent == [{"cmd": "message", "text": "Voz: Esta canción no tiene Puente"}]
     assert "✗" in lines[0]
+
+
+@pytest.mark.parametrize("said,commands", [
+    ("Secuencia, canción uno", [{"cmd": "song", "number": 1}]),
+    ("Secuencia, primera canción", [{"cmd": "song", "number": 1}]),
+    ("Secuencia, regresamos a la primera canción", [{"cmd": "song", "number": 1}]),
+    ("Secuencia, canción anterior", [{"cmd": "song", "number": 1}]),
+    ("Secuencia, última canción", [{"cmd": "song", "number": 2}]),
+    ("Secuencia, próxima canción", [{"cmd": "next_song"}]),
+    ("Secuencia, empezamos con la primera canción", [{"cmd": "song", "number": 1}, {"cmd": "play"}]),
+    ("Secuencia, Holy Forever", [{"cmd": "song", "number": 1}]),
+])
+def test_songs(said, commands):
+    assert parse(said, SECTIONS, TRACKS, SONGS, song_number=2)[1] == commands
+
+
+def test_no_song_before_the_first():
+    assert parse("Secuencia, canción anterior", SECTIONS, songs=SONGS, song_number=1) == ("Ya es la primera canción", [])

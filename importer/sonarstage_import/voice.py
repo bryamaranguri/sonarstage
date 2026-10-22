@@ -110,8 +110,9 @@ class Transcriber(object):
 class Context(object):
     """What can be said right now: sections of the current song, tracks, songs."""
 
-    def __init__(self, sections=(), tracks=(), songs=(), current=None, live=False):
+    def __init__(self, sections=(), tracks=(), songs=(), current=None, live=False, song_number=None):
         self.sections, self.tracks, self.songs, self.current = list(sections), list(tracks), list(songs), current
+        self.song_number = song_number
         self.live = live
 
     @classmethod
@@ -124,7 +125,7 @@ class Context(object):
         song = next((s for s in setlist if s["number"] == st.get("song")), setlist[0] if setlist else None)
         tracks = [t for t in r.get("tracks", []) if t not in GROUPS]
         return cls(song["sections"] if song else [], tracks, [(s["number"], s["title"]) for s in setlist],
-                   st.get("section"), live=True)
+                   st.get("section"), live=True, song_number=st.get("song"))
 
     @classmethod
     def from_song(cls, song_dir):
@@ -160,7 +161,8 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
                 continue
             armed = armed_until is not None and start <= armed_until
             armed_until = None
-            result = parse(text, ctx.sections, ctx.tracks, ctx.songs, ctx.current, () if armed else wake_words)
+            result = parse(text, ctx.sections, ctx.tracks, ctx.songs, ctx.current,
+                           () if armed else wake_words, song_number=ctx.song_number)
             if result is None:
                 out("%s  «%s»  (%d ms)" % (where, text, ms))
                 continue
