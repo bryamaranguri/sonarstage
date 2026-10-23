@@ -27,6 +27,7 @@ FIXED = {"repeat": "Repetimos", "hold": "En bucle", "release": "Seguimos", "canc
          "refused": "No entendí", "error": "No se pudo", "first_song": "Ya es la primera"}
 SONGS = 12
 PREFERRED_VOICES = ("es_MX", "es_419", "es_US", "es_ES")
+PREFERRED_NAMES = ("Paulina", "Mónica", "Juan", "Jorge")     # clear speaking voices first
 TARGET_RMS_DB = -20.0
 PEAK_DB = -1.0
 
@@ -108,10 +109,14 @@ def spanish_voice(listing=None):
         if m:
             voices.append((line[:m.start()].strip(), m.group(1).replace("-", "_")))
     for lang in PREFERRED_VOICES:
-        for name, code in voices:
-            if code == lang:
-                return name
-    return voices[0][0] if voices else None
+        here = [name for name, code in voices if code == lang]
+        for wanted in PREFERRED_NAMES:
+            for name in here:
+                if name.split(" (")[0] == wanted:
+                    return wanted if name.startswith(wanted + " (Español") else name
+        if here:
+            return here[0]
+    return None
 
 
 def level(x):

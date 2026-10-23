@@ -324,3 +324,13 @@ Paulina (Enhanced)  es_MX    # ¡Hola! Me llamo Paulina.
 Samantha            en_US    # Hello! My name is Samantha."""
     assert spanish_voice(listing) == "Paulina (Enhanced)"
     assert spanish_voice("Albert   en_US  # Hi") is None
+
+
+def test_prefers_paulina_on_bryams_mac():
+    from sonarstage_import.voice_prompts import spanish_voice
+    listing = """Eddy (Español (España)) es_ES    # ¡Hola! Me llamo Eddy.
+Eddy (Español (México)) es_MX    # ¡Hola! Me llamo Eddy.
+Grandma (Español (México)) es_MX    # ¡Hola! Me llamo Grandma.
+Mónica (Español (España)) es_ES    # ¡Hola! Me llamo Mónica.
+Paulina (Español (México)) es_MX    # ¡Hola! Me llamo Paulina."""
+    assert spanish_voice(listing) == "Paulina"
