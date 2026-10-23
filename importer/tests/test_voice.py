@@ -454,3 +454,17 @@ def test_confirmation_voice_is_bright_like_a_guide():
     f = np.fft.rfftfreq(len(y), 1 / sr)
     assert spec[f < 250].sum() < spec[(f > 2500) & (f < 3500)].sum()      # the lows are gone, presence up
     assert np.abs(y).max() <= 10 ** (-1 / 20) + 1e-6
+
+
+def test_vocabulary_has_every_section_name_and_the_songs_own():
+    from sonarstage_import.voice_commands import order_words
+    words = order_words()
+    for w in ["build", "break", "tag", "intro", "puente", "build dos"]:
+        assert w in words
+    mine = order_words(["Coro final", "Exhortación", "1. Holy Forever"])
+    assert "final" in mine and "exhortación" in mine and "holy" not in mine
+
+
+def test_banda_vamos_al_build():
+    holy = ["Intro", "Verso 1", "Pre coro", "Coro 1", "Verso 2", "Build", "Coro 2", "Tag", "Final"]
+    assert parse("banda vamos al build", holy)[1] == [{"cmd": "goto", "section": "Build"}]

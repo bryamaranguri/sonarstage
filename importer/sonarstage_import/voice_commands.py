@@ -340,8 +340,9 @@ def _same_section(spoken, current):
     return a == b or a == b[:len(a)]
 
 
-def order_words():
-    """Every word an order can have, written as spoken (for closed-vocabulary engines)."""
+def order_words(sections=()):
+    """Every word an order can have, written as spoken (for closed-vocabulary engines),
+    plus the words of `sections` (the names in the song that is playing)."""
     plain = set(WAKE_WORDS) | CANCEL | STOP | NEXT | PREVIOUS | LAST | SONG | MUTE | UNMUTE | HOLD | \
         REPEAT | RELEASE | PLAY | AFTER | SKIP | FILLER
     spoken = {"banda", "canción", "batería", "guitarra", "bajo", "teclado", "guía", "clic", "metrónomo", "intro",
@@ -350,7 +351,15 @@ def order_words():
               "después", "más", "atrás", "continúa", "y"}
     # whole phrases too: with only loose words Vosk dropped the number ("vamos verso" for
     # "vamos al verso dos", 2 of 5); with "verso dos" as a phrase it heard it
+    # every section name label.py writes ("build" was missing: "Banda, vamos al build" was
+    # not understood), and the names of this song, as written
+    spoken |= {"intro", "verso", "pre", "coro", "puente", "interludio", "instrumental", "tag", "final",
+               "break", "vamp", "build", "exhortación", "cappella", "capela", "cuenta"}
+    for name in sections:
+        if not re.match(r"^\s*\d+\.\s", name):                     # not a song locator
+            spoken |= {w for w in re.findall(r"[^\W\d_]+", name.lower())}
     numbers = ["uno", "dos", "tres", "cuatro"]
-    phrases = {"%s %s" % (w, n) for w in ("verso", "coro", "pre coro", "puente", "canción") for n in numbers}
+    phrases = {"%s %s" % (w, n) for w in ("verso", "coro", "pre coro", "puente", "canción", "build", "intro", "tag")
+               for n in numbers}
     phrases |= {"canción %s" % n for n in ("cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce")}
     return sorted(plain | spoken | phrases)

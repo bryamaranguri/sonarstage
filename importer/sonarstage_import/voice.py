@@ -157,11 +157,17 @@ class VoskTranscriber(object):
         self.rec.AcceptWaveform(_pcm16(audio_16k))
         return _clean(self.json.loads(self.rec.FinalResult()).get("text", ""))
 
-    def stream(self, sr, on_start, settle):
+    def grammar_for(self, sections=()):
+        from .voice_commands import order_words
+        return self.json.dumps(order_words(sections) + ["[unk]"], ensure_ascii=False)
+
+    def stream(self, sr, on_start, settle, sections=None):
         """Recognize while the phrase is spoken. `settle(text)` says how much silence (ms)
-        closes it, or None to wait the full time."""
+        closes it, or None to wait the full time. `sections()`: names of the song playing,
+        added to the vocabulary when the song changes."""
         from vosk import KaldiRecognizer
-        return VoskStream(KaldiRecognizer(self.model, sr, self.grammar), self.json, on_start, settle)
+        return VoskStream(KaldiRecognizer(self.model, sr, self.grammar), self.json, on_start, settle,
+                          sections, self.grammar_for)
 
 
 def _pcm16(x):
@@ -173,14 +179,22 @@ def _clean(text):
 
 
 class VoskStream(object):
-    def __init__(self, rec, json_module, on_start, settle):
+    def __init__(self, rec, json_module, on_start, settle, sections=None, grammar_for=None):
         self.rec, self.json, self.on_start, self.settle = rec, json_module, on_start, settle
-        self.said = []
+        self.sections, self.grammar_for = sections, grammar_for
+        self.said, self.known = [], None
 
     def start(self, frames):
+        self.on_start()
+        names = tuple(self.sections()) if self.sections else ()
+        if names != self.known and self.grammar_for is not None:
+            self.known = names
+            try:
+                self.rec.SetGrammar(self.grammar_for(names))
+            except Exception:
+                pass                                   # older vosk: the fixed vocabulary stays
         self.rec.Reset()
         self.said = []
-        self.on_start()
         for f in frames:
             self.frame(f)
 
@@ -348,7 +362,8 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
             ctx = holder["ctx"] or Context()
             kind, _, _ = interpreter.peek(text, seg.start_sample / sr, ctx)
             return settle_ms(kind, text, ctx)
-        stream = transcribe.stream(sr, on_start, settle)
+        stream = transcribe.stream(sr, on_start, settle,
+                                   sections=lambda: (holder["ctx"] or Context()).sections)
     seg = Segmenter(sr, stream=stream)
     n, log = 0, None
     if record:
