@@ -405,6 +405,8 @@ class LinkCore(object):
             else int(round((current.end - current.start) / bar)),
             "loop": bool(self.song.loop),
             "pending": self.pending.name if self.pending else None,
+            # where a jump fired in this last bar will land (no longer "pending")
+            "landing": self.landing[0].name if self.landing else None,
             "autostop": self.autostop,
             "next_song": self._next_title(current),
             "guide_quiet": bool(self.guide_quieted),

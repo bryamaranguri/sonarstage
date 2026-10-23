@@ -84,7 +84,10 @@ def key_for(kind, commands, errors=(), state=None):
     cmd = c["cmd"]
     state = state or {}
     if cmd in ("goto", "next_section"):
-        name = state.get("pending") or (state.get("section") if cmd == "goto" or not state.get("playing") else None)
+        # the target: still pending, or already fired in the last bar ("landing"); stopped,
+        # the bridge moved at once and the target is where we are
+        name = state.get("pending") or state.get("landing") or \
+            (state.get("section") if not state.get("playing") else None)
         if name and not re.match(r"^\s*\d+\.\s", name):          # a song locator is not a section
             return "section-" + slug(name)
         if cmd == "next_section":

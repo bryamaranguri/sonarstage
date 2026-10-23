@@ -301,6 +301,10 @@ def test_confirmation_says_where_it_will_land():
     goto = [{"cmd": "goto", "section": "Coro"}]
     assert key_for("command", goto, state={"playing": True, "pending": "Coro 2"}) == "section-coro-2"
     assert key_for("command", goto, state={"playing": False, "pending": None, "section": "Coro 1"}) == "section-coro-1"
+    # said in the last bar: fired at once, so not pending; it must not say where we are now
+    fired = {"playing": True, "pending": None, "landing": "Coro 1", "section": "Intro"}
+    assert key_for("command", goto, state=fired) == "section-coro-1"
+    assert key_for("command", goto, state={"playing": True, "section": "Intro"}) == "section-coro"
     nxt = [{"cmd": "next_section"}]
     assert key_for("command", nxt, state={"playing": True, "pending": "Puente"}) == "section-puente"
     assert key_for("command", nxt, state={"playing": False, "section": "1. Holy Forever"}) == "next_section"

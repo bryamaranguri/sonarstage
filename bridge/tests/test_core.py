@@ -390,3 +390,12 @@ def test_smart_guide_respects_the_director():
     core.handle({"cmd": "mute", "track": "Guía", "on": True})    # "quita la guía" while pending
     run(core, song, 30)
     assert guide.mute                                 # stays as asked
+
+
+def test_state_says_where_a_jump_fired_in_the_last_bar_lands():
+    core, song = LinkCore(FakeSong(CUES), bar_quantization=Q_BAR), None
+    song = core.song
+    song.current_song_time = 37.0                     # last bar of "Sección 2"
+    song.continue_playing()
+    st = core.handle({"cmd": "goto", "section": "Sección 1"})["state"]
+    assert st["pending"] is None and st["landing"] == "Sección 1"    # fired at once, lands at 40
