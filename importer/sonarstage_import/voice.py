@@ -197,6 +197,43 @@ class VoskStream(object):
         return " ".join(self.said + [_clean(self.json.loads(self.rec.FinalResult()).get("text", ""))]).strip()
 
 
+class Confirmer(object):
+    """Plays the spoken confirmation (voice_prompts.py) on one output of the interface, the
+    one with the click, without touching the interface's settings or Ableton's audio."""
+
+    def __init__(self, folder, device, channel=2, gain_db=0.0):
+        import sounddevice as sd
+        import soundfile as sf
+        from scipy.signal import resample_poly
+        self.sd, self.device, self.channel = sd, device, channel
+        info = sd.query_devices(device, "output")
+        if info["max_output_channels"] < channel:
+            raise ValueError("%s tiene %d salidas" % (info["name"], info["max_output_channels"]))
+        self.sr = int(info["default_samplerate"])
+        self.extra = sd.CoreAudioSettings(change_device_parameters=False) if sys.platform == "darwin" else None
+        self.clips = {}
+        g = 10 ** (gain_db / 20)
+        for f in Path(folder).glob("*.wav"):
+            x, sr = sf.read(str(f), dtype="float32")
+            if sr != self.sr:
+                x = resample_poly(x, self.sr // gcd(self.sr, sr), sr // gcd(self.sr, sr))
+            self.clips[f.stem] = (x * g).astype(np.float32)
+        if not self.clips:
+            raise ValueError("no hay frases en %s" % folder)
+
+    def __call__(self, key):
+        x = self.clips.get(key)
+        if x is None:
+            return False
+        try:
+            self.sd.play(x, self.sr, device=self.device, mapping=[self.channel], blocking=False,
+                         extra_settings=self.extra)
+            return True
+        except Exception as e:                       # a confirmation must never stop the listener
+            print("  (no pude reproducir la confirmación: %s)" % e)
+            return False
+
+
 class Context(object):
     """What can be said right now: sections of the current song, tracks, songs."""
 
@@ -291,7 +328,7 @@ def settle_ms(kind, text, ctx):
 
 
 def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False,
-           send=link_client.send, out=print, record=None):
+           send=link_client.send, out=print, record=None, confirm=None):
     """Main loop. `blocks` yields mono float arrays at `sr`; `context` returns a Context.
     `record` (a folder) keeps every phrase as a WAV plus a line in registro.tsv."""
     up, down = SR // gcd(SR, sr), sr // gcd(SR, sr)
@@ -328,6 +365,7 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
             ms = (time.monotonic() - t0) * 1000 + seg.end_quiet_ms          # after you stop talking
             kind, label, commands = interpreter.hear(text, start, end, ctx)
             where = "%7.1f s" % start
+            errors = []
             if kind == "armed":
                 out("%s  «%s»  … te escucho" % (where, text))
             elif kind == "ignored":
@@ -340,17 +378,23 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
             elif dry_run:
                 out("%s  «%s»  → %s  (%d ms, sin enviar)" % (where, text, label, ms))
             else:
-                errors = []
                 for cmd in commands:
                     r = send(cmd)
                     if not r.get("ok"):
                         errors.append(r.get("error", "?"))
+                    elif cmd["cmd"] == "next_song" and (r.get("state") or {}).get("song"):
+                        commands = [{"cmd": "song", "number": r["state"]["song"]}]   # say which one
                 if errors:
                     out("%s  «%s»  → %s ✗ %s" % (where, text, label, "; ".join(errors)))
                     send({"cmd": "message", "text": "Voz: %s — %s" % (label, errors[0])})
                 else:
                     out("%s  «%s»  → %s ✓  (%d ms)" % (where, text, label, ms))
                     send({"cmd": "message", "text": "Voz: " + label})
+            if confirm is not None:
+                from .voice_prompts import key_for
+                key = key_for(kind, commands, errors)
+                if key:
+                    confirm(key)
             if log is not None:
                 n += 1
                 name = "%s-%03d.wav" % (time.strftime("%Y%m%d-%H%M%S"), n)
@@ -410,6 +454,10 @@ def main(argv=None):
     ap.add_argument("--no-wake", action="store_true", help="Sin palabra de activación (solo para pruebas)")
     ap.add_argument("--dry-run", action="store_true", help="Escuchar y mostrar, sin enviar nada a Ableton")
     ap.add_argument("--record", help="Carpeta donde guardar cada frase (WAV + registro.tsv) para pruebas")
+    ap.add_argument("--voices", help="Carpeta de frases de confirmación (por defecto: voces junto a --model-dir)")
+    ap.add_argument("--confirm-channel", type=int, default=2, help="Salida de la interfaz para la confirmación (la del click)")
+    ap.add_argument("--confirm-gain", type=float, default=0.0, help="Volumen de la confirmación en dB")
+    ap.add_argument("--no-confirm", action="store_true", help="Sin confirmación hablada")
     args = ap.parse_args(argv)
 
     if args.devices:
@@ -441,8 +489,20 @@ def main(argv=None):
             print(link_client.NOT_RUNNING)
         print("Escuchando (entrada %d, %d Hz). Di «%s, …». Ctrl+C para salir." % (
             args.channel, sr, wake[0].capitalize() if wake else "…"), flush=True)
+    confirm = None
+    voices = Path(args.voices) if args.voices else (Path(args.model_dir).parent / "voces" if args.model_dir else None)
+    if not args.file and not args.no_confirm:
+        if voices is not None and voices.is_dir():
+            try:
+                confirm = Confirmer(voices, device, args.confirm_channel, args.confirm_gain)
+                print("Confirmación hablada por la salida %d." % args.confirm_channel)
+            except Exception as e:
+                print("Sin confirmación hablada: %s" % e)
+        else:
+            print("Sin confirmación hablada: no hay frases (python -m sonarstage_import.voice_prompts %s)."
+                  % (voices or "<carpeta>"))
     try:
-        listen(blocks, sr, transcribe, context, wake, args.dry_run, record=args.record)
+        listen(blocks, sr, transcribe, context, wake, args.dry_run, record=args.record, confirm=confirm)
     except KeyboardInterrupt:
         print()
     return 0

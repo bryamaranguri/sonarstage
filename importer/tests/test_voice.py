@@ -243,3 +243,39 @@ def test_record_keeps_each_phrase(tmp_path):
     rows = (tmp_path / "registro.tsv").read_text().splitlines()
     assert len(rows) == 1 and rows[0].split("\t")[2:4] == ["Secuencia, siguiente", "Siguiente sección"]
     assert len(list(tmp_path.glob("*.wav"))) == 1
+
+
+
+def test_every_order_has_its_spoken_confirmation():
+    from sonarstage_import.voice_prompts import catalog, key_for
+    phrases = catalog()
+    said = ["Secuencia, repetimos", "Secuencia, en bucle", "Secuencia, seguimos", "Secuencia, cancela",
+            "Secuencia, siguiente", "Secuencia, siguiente canción", "Secuencia, dale", "Secuencia, para",
+            "Secuencia, vamos al coro", "Secuencia, al verso dos", "Secuencia, vamos al pre coro",
+            "Secuencia, canción tres", "Secuencia, después va la canción dos", "Secuencia, saltamos la canción dos",
+            "Secuencia, silencia la guitarra", "Secuencia, activa la batería", "Secuencia, quita la guía",
+            "Secuencia, vamos al puente", "Secuencia, al final"]
+    for text in said:
+        label, commands = parse(text, SECTIONS, TRACKS, SONGS, current="Verso 1", song_number=1)
+        key = key_for("command", commands)
+        assert key in phrases, (text, key)
+    assert phrases[key_for("command", [{"cmd": "goto", "section": "Verso 2"}])] == "Verso dos"
+    assert phrases[key_for("command", [{"cmd": "mute", "track": "Guitarra eléctrica", "on": True}])] == "Sin guitarra"
+    assert key_for("refused", []) == "refused" and key_for("armed", []) is None
+    assert key_for("command", [{"cmd": "song", "number": 2}], errors=["no hay canción 2"]) == "error"
+
+
+def test_listen_confirms_what_it_did():
+    stream = [np.concatenate([noise(1, -60), tone(1, -20), noise(1, -60)])]
+    heard = []
+    listen(iter(stream), SR, lambda a, p: "Secuencia, vamos al coro", lambda: Context(SECTIONS), send=lambda m: {"ok": True},
+           out=lambda s: None, confirm=heard.append)
+    assert heard == ["section-coro"]
+
+
+def test_next_song_confirms_the_song_it_went_to():
+    stream = [np.concatenate([noise(1, -60), tone(1, -20), noise(1, -60)])]
+    heard = []
+    listen(iter(stream), SR, lambda a, p: "Secuencia, siguiente canción", lambda: Context(SECTIONS),
+           send=lambda m: {"ok": True, "state": {"song": 3}}, out=lambda s: None, confirm=heard.append)
+    assert heard == ["song-3"]

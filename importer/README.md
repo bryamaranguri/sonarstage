@@ -43,6 +43,8 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `voice` | Control por voz: micrófono → frases → comandos para SonarStage Link |
 | `voice_commands` | Vocabulario cerrado: qué frase es qué comando |
 | `link_client` | Cliente TCP de SonarStage Link |
+| `voice_prompts` | Frases de confirmación habladas («Coro», «Repetimos»), hechas con las voces de macOS |
+| `voice_bench` | Compara motores de voz con frases grabadas (`--record`) |
 
 Resultados con paquetes reales: `docs/hallazgos-paquetes.md`.
 
@@ -80,3 +82,12 @@ vamos al puente», «Secuencia, siguiente», «Secuencia, seguimos», «Secuenci
 «Secuencia, siguiente canción», «Secuencia, después va la canción tres», «Secuencia,
 saltamos la canción dos», «Secuencia, silencia la guitarra» / «activa la guitarra»,
 «Secuencia, dale» / «para». Lo que se ejecuta aparece en la barra de estado de Live.
+
+Confirmación hablada (una vez, en la Mac; usa la voz en español de macOS):
+
+```bash
+python -m sonarstage_import.voice_prompts ../../material/voces
+```
+
+`voice` la toca por la salida del click (`--confirm-channel 2`, `--confirm-gain -6` para
+bajarla, `--no-confirm` para quitarla).
