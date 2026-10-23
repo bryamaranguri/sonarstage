@@ -14,6 +14,7 @@ the section, so it is enough to say it some beats before.
 """
 import argparse
 import json
+import warnings
 import queue
 import sys
 import time
@@ -27,6 +28,7 @@ from . import link_client
 from .voice_commands import WAKE_WORDS, parse, wake_rest
 
 SR = 16000
+warnings.filterwarnings("ignore", message=".*OpenSSL.*")      # urllib3 on macOS's Python 3.9, harmless
 ARMED_SECONDS = 4.0      # after a lone "Secuencia", the next phrase within this time is the order
 GROUPS = {"EN VIVO", "SECUENCIA", "CUES", "CONTROL"}
 # Whisper's prompt is only the wake word. A prompt with the whole vocabulary made it "hear"
@@ -198,25 +200,20 @@ class VoskStream(object):
 
 
 class Confirmer(object):
-    """Plays the spoken confirmation (voice_prompts.py) on one output of the interface, the
-    one with the click, without touching the interface's settings or Ableton's audio."""
+    """Spoken confirmations (voice_prompts.py), loaded at the interface's rate and handed to
+    `play` (the one stream that is already open: opening an output per phrase next to the
+    mic stopped the mic on a real Mac)."""
 
-    def __init__(self, folder, device, channel=2, gain_db=0.0):
-        import sounddevice as sd
+    def __init__(self, folder, sr, play, gain_db=0.0):
         import soundfile as sf
         from scipy.signal import resample_poly
-        self.sd, self.device, self.channel = sd, device, channel
-        info = sd.query_devices(device, "output")
-        if info["max_output_channels"] < channel:
-            raise ValueError("%s tiene %d salidas" % (info["name"], info["max_output_channels"]))
-        self.sr = int(info["default_samplerate"])
-        self.extra = sd.CoreAudioSettings(change_device_parameters=False) if sys.platform == "darwin" else None
+        self.sr, self.play = sr, play
         self.clips = {}
         g = 10 ** (gain_db / 20)
         for f in Path(folder).glob("*.wav"):
-            x, sr = sf.read(str(f), dtype="float32")
-            if sr != self.sr:
-                x = resample_poly(x, self.sr // gcd(self.sr, sr), sr // gcd(self.sr, sr))
+            x, file_sr = sf.read(str(f), dtype="float32")
+            if file_sr != sr:
+                x = resample_poly(x, sr // gcd(sr, file_sr), file_sr // gcd(sr, file_sr))
             self.clips[f.stem] = (x * g).astype(np.float32)
         if not self.clips:
             raise ValueError("no hay frases en %s" % folder)
@@ -226,8 +223,7 @@ class Confirmer(object):
         if x is None:
             return False
         try:
-            self.sd.play(x, self.sr, device=self.device, mapping=[self.channel], blocking=False,
-                         extra_settings=self.extra)
+            self.play(x)
             return True
         except Exception as e:                       # a confirmation must never stop the listener
             print("  (no pude reproducir la confirmación: %s)" % e)
@@ -423,21 +419,85 @@ def file_blocks(path, block_s=0.05):
     yield np.zeros(SR, dtype=np.float32)           # close a last utterance
 
 
-def mic_blocks(device, channel, sr):
-    import sounddevice as sd
-    q = queue.Queue()
+class AudioIO(object):
+    """One stream on the interface for the whole show: the mic comes in on `in_channel`
+    and, if `out_channel` is given, the confirmations go out on it (silence otherwise).
+    Never touches the interface's settings: Ableton is using it. If the mic stops arriving
+    (2 s without audio), the stream is reopened."""
 
-    def callback(indata, frames, t, status):
-        q.put(indata[:, channel - 1].copy())
+    STALL_S = 2.0
 
-    extra = None
-    if sys.platform == "darwin":
-        # never touch the interface's settings: Ableton is using it for the show
-        extra = sd.CoreAudioSettings(change_device_parameters=False)
-    with sd.InputStream(device=device, channels=channel, samplerate=sr, dtype="float32",
-                        blocksize=int(sr * 0.05), callback=callback, extra_settings=extra):
+    def __init__(self, device, in_channel, out_channel=None, out=print):
+        import sounddevice as sd
+        import threading
+        self.sd, self.device, self.in_channel, self.out_channel, self.out = sd, device, in_channel, out_channel, out
+        self.sr = int(sd.query_devices(device, "input")["default_samplerate"])
+        self.extra = sd.CoreAudioSettings(change_device_parameters=False) if sys.platform == "darwin" else None
+        self.q = queue.Queue()
+        self.lock = threading.Lock()
+        self.playing, self.pos = None, 0
+        self.stream = None
+
+    def _in(self, indata, frames, t, status):
+        self.q.put(indata[:, self.in_channel - 1].copy())
+
+    def _duplex(self, indata, outdata, frames, t, status):
+        self.q.put(indata[:, self.in_channel - 1].copy())
+        outdata.fill(0)
+        with self.lock:
+            if self.playing is not None:
+                n = min(frames, len(self.playing) - self.pos)
+                outdata[:n, self.out_channel - 1] = self.playing[self.pos:self.pos + n]
+                self.pos += n
+                if self.pos >= len(self.playing):
+                    self.playing = None
+
+    def open(self):
+        block = int(self.sr * 0.02)
+        if self.out_channel:
+            try:
+                self.stream = self.sd.Stream(device=(self.device, self.device),
+                                             channels=(self.in_channel, self.out_channel),
+                                             samplerate=self.sr, dtype="float32", blocksize=block,
+                                             callback=self._duplex, extra_settings=(self.extra, self.extra))
+                self.stream.start()
+                return True
+            except Exception as e:
+                self.out("Sin confirmación hablada: no pude abrir la salida %d (%s)" % (self.out_channel, e))
+                self.out_channel = None
+        self.stream = self.sd.InputStream(device=self.device, channels=self.in_channel, samplerate=self.sr,
+                                          dtype="float32", blocksize=block, callback=self._in,
+                                          extra_settings=self.extra)
+        self.stream.start()
+        return False
+
+    def close(self):
+        if self.stream is not None:
+            try:
+                self.stream.close()
+            except Exception:
+                pass
+            self.stream = None
+
+    def play(self, samples):
+        if not self.out_channel:
+            raise RuntimeError("sin salida")
+        with self.lock:
+            self.playing, self.pos = samples, 0
+
+    def blocks(self):
         while True:
-            yield q.get()
+            try:
+                yield self.q.get(timeout=self.STALL_S)
+            except queue.Empty:
+                self.out("⚠ El micrófono dejó de llegar: reconectando la entrada…")
+                self.close()
+                time.sleep(0.5)
+                try:
+                    self.open()
+                    self.out("  reconectado.")
+                except Exception as e:
+                    self.out("  no se pudo (%s); vuelvo a intentar." % e)
 
 
 def list_devices():
@@ -490,28 +550,27 @@ def main(argv=None):
         fixed = Context.from_song(args.song) if args.song else Context()
         blocks, sr = file_blocks(args.file), SR
         context = (lambda: fixed) if args.dry_run or args.song else Context.from_link
-    else:
-        import sounddevice as sd
+    confirm = None
+    if not args.file:
         device = int(args.device) if args.device and args.device.isdigit() else args.device
-        sr = int(sd.query_devices(device, "input")["default_samplerate"])
-        blocks = mic_blocks(device, args.channel, sr)
+        voices = Path(args.voices) if args.voices else (Path(args.model_dir).parent / "voces" if args.model_dir else None)
+        want_confirm = not args.no_confirm and voices is not None and voices.is_dir()
+        audio = AudioIO(device, args.channel, args.confirm_channel if want_confirm else None)
+        if audio.open():
+            try:
+                confirm = Confirmer(voices, audio.sr, audio.play, args.confirm_gain)
+                print("Confirmación hablada por la salida %d." % args.confirm_channel)
+            except Exception as e:
+                print("Sin confirmación hablada: %s" % e)
+        elif not args.no_confirm and not want_confirm:
+            print("Sin confirmación hablada: no hay frases (python -m sonarstage_import.voice_prompts %s)."
+                  % (voices or "<carpeta>"))
+        blocks, sr = audio.blocks(), audio.sr
         context = Context.from_link
         if not args.dry_run and not Context.from_link().live:
             print(link_client.NOT_RUNNING)
         print("Escuchando (entrada %d, %d Hz). Di «%s, …». Ctrl+C para salir." % (
             args.channel, sr, "» o «".join(w.capitalize() for w in wake) if wake else "…"), flush=True)
-    confirm = None
-    voices = Path(args.voices) if args.voices else (Path(args.model_dir).parent / "voces" if args.model_dir else None)
-    if not args.file and not args.no_confirm:
-        if voices is not None and voices.is_dir():
-            try:
-                confirm = Confirmer(voices, device, args.confirm_channel, args.confirm_gain)
-                print("Confirmación hablada por la salida %d." % args.confirm_channel)
-            except Exception as e:
-                print("Sin confirmación hablada: %s" % e)
-        else:
-            print("Sin confirmación hablada: no hay frases (python -m sonarstage_import.voice_prompts %s)."
-                  % (voices or "<carpeta>"))
     try:
         listen(blocks, sr, transcribe, context, wake, args.dry_run, record=args.record, confirm=confirm)
     except KeyboardInterrupt:

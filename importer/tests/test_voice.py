@@ -356,3 +356,89 @@ def test_render_writes_every_phrase(tmp_path, monkeypatch):
     x, sr = sf.read(str(tmp_path / "section-coro.wav"))
     assert sr == 48000 and len(x) < 0.7 * sr                    # silence trimmed
     assert 20 * np.log10(np.sqrt(np.mean(x ** 2))) == pytest.approx(-20, abs=0.5)
+
+
+class FakeSD:
+    """Enough of sounddevice to drive AudioIO's callbacks by hand."""
+
+    class CoreAudioSettings:
+        def __init__(self, **kw):
+            pass
+
+    def __init__(self, fail_duplex=False):
+        self.fail_duplex, self.opened = fail_duplex, []
+
+    def query_devices(self, device, kind):
+        return {"default_samplerate": 44100, "name": "SSL 2"}
+
+    def _stream(self, kind, **kw):
+        sd = self
+
+        class S:
+            def __init__(self):
+                self.kw, self.kind, self.closed = kw, kind, False
+                sd.opened.append(self)
+
+            def start(self):
+                pass
+
+            def close(self):
+                self.closed = True
+        return S()
+
+    def Stream(self, **kw):
+        if self.fail_duplex:
+            raise RuntimeError("Audio Unit: cannot do in current context")
+        return self._stream("duplex", **kw)
+
+    def InputStream(self, **kw):
+        return self._stream("input", **kw)
+
+
+def audio_io(monkeypatch, **kw):
+    import sys as _sys
+    from sonarstage_import.voice import AudioIO
+    sd = FakeSD(**kw)
+    monkeypatch.setitem(_sys.modules, "sounddevice", sd)
+    lines = []
+    return AudioIO("SSL 2", 1, 2, out=lines.append), sd, lines
+
+
+def test_one_stream_for_mic_and_confirmations(monkeypatch):
+    io, sd, _ = audio_io(monkeypatch)
+    assert io.open() and sd.opened[-1].kind == "duplex"
+    assert sd.opened[-1].kw["channels"] == (1, 2)
+    io.play(np.ones(30, np.float32))
+    indata = np.random.default_rng(0).standard_normal((20, 1)).astype(np.float32)
+    out = np.full((20, 2), 9.0, np.float32)
+    io._duplex(indata, out, 20, None, None)
+    assert np.all(out[:, 0] == 0) and np.all(out[:, 1] == 1)       # only the click output
+    out = np.zeros((20, 2), np.float32)
+    io._duplex(indata, out, 20, None, None)
+    assert np.all(out[:10, 1] == 1) and np.all(out[10:] == 0)        # the phrase ends, silence after
+    assert np.array_equal(io.q.get_nowait(), indata[:, 0])
+
+
+def test_without_output_the_mic_still_works(monkeypatch):
+    io, sd, lines = audio_io(monkeypatch, fail_duplex=True)
+    assert not io.open() and sd.opened[-1].kind == "input"
+    assert "Sin confirmación" in lines[0]
+    with pytest.raises(RuntimeError):
+        io.play(np.ones(5, np.float32))
+
+
+def test_a_stalled_mic_is_reopened(monkeypatch):
+    io, sd, lines = audio_io(monkeypatch)
+    io.STALL_S = 0.05
+    io.open()
+    first = sd.opened[-1]
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    gen = io.blocks()
+    io.q.put(np.zeros(10, np.float32))
+    next(gen)                                         # audio arrives
+
+    import threading
+    threading.Timer(0.2, lambda: io.q.put(np.ones(10, np.float32))).start()
+    block = next(gen)                                 # nothing for a while → reopened, then audio
+    assert first.closed and len(sd.opened) >= 2 and "reconectando" in lines[0]
+    assert block[0] == 1
