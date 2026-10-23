@@ -345,7 +345,7 @@ def test_render_writes_every_phrase(tmp_path, monkeypatch):
     def fake_run(cmd, **kw):
         out = cmd[cmd.index("-o") + 1]
         t = np.arange(24000) / 48000
-        x = np.concatenate([np.zeros(4800), 0.3 * np.sin(2 * np.pi * 220 * t), np.zeros(4800)])
+        x = np.concatenate([np.zeros(4800), 0.3 * np.sin(2 * np.pi * 1000 * t), np.zeros(4800)])
         sf.write(out, x.astype(np.float32), 48000, subtype="PCM_16")
 
     monkeypatch.setattr(voice_prompts.subprocess, "run", fake_run)
@@ -355,7 +355,7 @@ def test_render_writes_every_phrase(tmp_path, monkeypatch):
     assert json.loads((tmp_path / "voces.json").read_text())["voice"] == "Paulina"
     x, sr = sf.read(str(tmp_path / "section-coro.wav"))
     assert sr == 48000 and len(x) < 0.7 * sr                    # silence trimmed
-    assert 20 * np.log10(np.sqrt(np.mean(x ** 2))) == pytest.approx(-20, abs=0.5)
+    assert 20 * np.log10(np.sqrt(np.mean(x ** 2))) == pytest.approx(voice_prompts.TARGET_RMS_DB, abs=0.5)
 
 
 class FakeSD:
@@ -442,3 +442,15 @@ def test_a_stalled_mic_is_reopened(monkeypatch):
     block = next(gen)                                 # nothing for a while → reopened, then audio
     assert first.closed and len(sd.opened) >= 2 and "reconectando" in lines[0]
     assert block[0] == 1
+
+
+def test_confirmation_voice_is_bright_like_a_guide():
+    from sonarstage_import.voice_prompts import level
+    sr = 48000
+    t = np.arange(sr // 2) / sr
+    dull = 0.3 * np.sin(2 * np.pi * 150 * t) + 0.05 * np.sin(2 * np.pi * 3000 * t)
+    y = level(dull, sr)
+    spec = np.abs(np.fft.rfft(y))
+    f = np.fft.rfftfreq(len(y), 1 / sr)
+    assert spec[f < 250].sum() < spec[(f > 2500) & (f < 3500)].sum()      # the lows are gone, presence up
+    assert np.abs(y).max() <= 10 ** (-1 / 20) + 1e-6

@@ -23,12 +23,16 @@ SECTION_NAMES = ["Cuenta", "Intro", "Verso", "Pre coro", "Coro", "Puente", "Inte
 TRACK_WORDS = {"bateria": "batería", "bajo": "bajo", "guitarra": "guitarra", "teclado": "teclado",
                "guia": "guía", "click": "click", "piano": "piano", "voz": "voz"}
 FIXED = {"repeat": "Repetimos", "hold": "En bucle", "release": "Seguimos", "cancel": "Cancelado",
-         "next_section": "Siguiente", "next_song": "Siguiente canción", "play": "Dale", "stop": "Paramos",
+         "next_section": "Siguiente", "next_song": "Siguiente canción", "play": "Play", "stop": "Paramos",
          "refused": "No entendí", "error": "No se pudo", "first_song": "Ya es la primera"}
 SONGS = 12
 PREFERRED_VOICES = ("es_MX", "es_419", "es_US", "es_ES")
 PREFERRED_NAMES = ("Paulina", "Mónica", "Juan", "Jorge")     # clear speaking voices first
-TARGET_RMS_DB = -20.0
+# Like the packs' guides: measured on "Alegras mis días", the guide's speech is bright
+# (spectral centroid ~3 kHz, 2 % of the energy under 250 Hz) at ~-20 dB RMS; macOS's
+# Paulina came out dull (centroid ~1 kHz, ~45 % under 250 Hz). So: low cut, presence and
+# air, a little compression, and the level of the guide.
+TARGET_RMS_DB = -18.0
 PEAK_DB = -1.0
 
 
@@ -119,14 +123,59 @@ def spanish_voice(listing=None):
     return None
 
 
-def level(x):
-    """Trim silence and bring every phrase to the same level."""
+def _biquad_peak(f0, gain_db, q, sr):
+    a_ = 10 ** (gain_db / 40)
+    w = 2 * np.pi * f0 / sr
+    al = np.sin(w) / (2 * q)
+    b = [1 + al * a_, -2 * np.cos(w), 1 - al * a_]
+    a = [1 + al / a_, -2 * np.cos(w), 1 - al / a_]
+    return np.array(b) / a[0], np.array(a) / a[0]
+
+
+def _biquad_high_shelf(f0, gain_db, sr):
+    a_ = 10 ** (gain_db / 40)
+    w = 2 * np.pi * f0 / sr
+    c, s2 = np.cos(w), 2 * np.sqrt(a_) * np.sin(w) / 2 * np.sqrt(2)
+    b = [a_ * ((a_ + 1) + (a_ - 1) * c + s2), -2 * a_ * ((a_ - 1) + (a_ + 1) * c), a_ * ((a_ + 1) + (a_ - 1) * c - s2)]
+    a = [(a_ + 1) - (a_ - 1) * c + s2, 2 * ((a_ - 1) - (a_ + 1) * c), (a_ + 1) - (a_ - 1) * c - s2]
+    return np.array(b) / a[0], np.array(a) / a[0]
+
+
+def brighten(x, sr):
+    """Low cut 300 Hz, +8 dB at 3 kHz, +6 dB shelf from 6 kHz (guide-like voice)."""
+    from scipy.signal import butter, lfilter, sosfilt
+    x = sosfilt(butter(4, 300, "highpass", fs=sr, output="sos"), x)
+    x = lfilter(*_biquad_peak(3000, 8, 0.9, sr), x)
+    return lfilter(*_biquad_high_shelf(6000, 6, sr), x)
+
+
+def compress(x, sr, above_rms_db=8.0, ratio=4.0, threshold=None, attack_s=0.005):
+    """Compressor (80 ms release) so peaks ("ción") do not set the level. With `threshold`
+    (linear) and a high ratio it is the final limiter."""
+    rms = np.sqrt(np.mean(x ** 2)) + 1e-12
+    thr = threshold if threshold is not None else rms * 10 ** (above_rms_db / 20)
+    env = np.abs(x)
+    att, rel = np.exp(-1 / (attack_s * sr)), np.exp(-1 / (0.08 * sr))
+    e, out = 0.0, np.empty_like(env)
+    for i, v in enumerate(env):
+        e = att * e + (1 - att) * v if v > e else rel * e + (1 - rel) * v
+        out[i] = e
+    gain = np.where(out > thr, (thr / np.maximum(out, 1e-12)) ** (1 - 1 / ratio), 1.0)
+    return x * gain
+
+
+def level(x, sr=48000):
+    """Trim silence, make it sound like a guide, and bring every phrase to the same level."""
+    x = np.asarray(x, dtype=np.float64)
     env = np.abs(x)
     on = np.nonzero(env > 10 ** (-45 / 20))[0]
     if len(on):
         x = x[max(0, on[0] - 480):on[-1] + 2400]
-    rms = np.sqrt(np.mean(x.astype(np.float64) ** 2)) + 1e-12
-    x = x * (10 ** (TARGET_RMS_DB / 20) / rms)
+    x = compress(brighten(x, sr), sr)
+    for _ in range(3):                       # level, then limit the few peaks above the ceiling
+        rms = np.sqrt(np.mean(x ** 2)) + 1e-12
+        x = x * (10 ** (TARGET_RMS_DB / 20) / rms)
+        x = compress(x, sr, ratio=20.0, threshold=10 ** ((PEAK_DB - 1) / 20), attack_s=0.0005)
     peak = np.abs(x).max() + 1e-12
     if peak > 10 ** (PEAK_DB / 20):
         x = x * (10 ** (PEAK_DB / 20) / peak)
@@ -150,7 +199,7 @@ def render(folder, voice=None, rate=210):
         x, sr = sf.read(str(tmp), dtype="float32")
         if x.ndim > 1:
             x = x.mean(axis=1)
-        sf.write(str(folder / (key + ".wav")), level(x), sr, subtype="PCM_16")
+        sf.write(str(folder / (key + ".wav")), level(x, sr), sr, subtype="PCM_16")
         tmp.unlink()
         print(("\r%d/%d %s" % (i, len(phrases), text)).ljust(60), end="", flush=True)
     (folder / "voces.json").write_text(json.dumps({"voice": voice, "rate": rate, "phrases": phrases},
