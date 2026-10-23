@@ -334,3 +334,25 @@ Grandma (Español (México)) es_MX    # ¡Hola! Me llamo Grandma.
 Mónica (Español (España)) es_ES    # ¡Hola! Me llamo Mónica.
 Paulina (Español (México)) es_MX    # ¡Hola! Me llamo Paulina."""
     assert spanish_voice(listing) == "Paulina"
+
+
+def test_render_writes_every_phrase(tmp_path, monkeypatch):
+    """`say` faked: a tone instead of a voice, to run render() everywhere."""
+    import json
+    import soundfile as sf
+    from sonarstage_import import voice_prompts
+
+    def fake_run(cmd, **kw):
+        out = cmd[cmd.index("-o") + 1]
+        t = np.arange(24000) / 48000
+        x = np.concatenate([np.zeros(4800), 0.3 * np.sin(2 * np.pi * 220 * t), np.zeros(4800)])
+        sf.write(out, x.astype(np.float32), 48000, subtype="PCM_16")
+
+    monkeypatch.setattr(voice_prompts.subprocess, "run", fake_run)
+    voice_prompts.render(tmp_path, voice="Paulina")
+    phrases = voice_prompts.catalog()
+    assert len(list(tmp_path.glob("*.wav"))) == len(phrases)
+    assert json.loads((tmp_path / "voces.json").read_text())["voice"] == "Paulina"
+    x, sr = sf.read(str(tmp_path / "section-coro.wav"))
+    assert sr == 48000 and len(x) < 0.7 * sr                    # silence trimmed
+    assert 20 * np.log10(np.sqrt(np.mean(x ** 2))) == pytest.approx(-20, abs=0.5)

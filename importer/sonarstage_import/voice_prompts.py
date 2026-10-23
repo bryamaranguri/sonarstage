@@ -152,7 +152,7 @@ def render(folder, voice=None, rate=210):
             x = x.mean(axis=1)
         sf.write(str(folder / (key + ".wav")), level(x), sr, subtype="PCM_16")
         tmp.unlink()
-        print("\r%d/%d %s" % (i, len(phrases), text).ljust(60), end="", flush=True)
+        print(("\r%d/%d %s" % (i, len(phrases), text)).ljust(60), end="", flush=True)
     (folder / "voces.json").write_text(json.dumps({"voice": voice, "rate": rate, "phrases": phrases},
                                                   ensure_ascii=False, indent=1))
     print("\nListo: %d frases con la voz %s en %s" % (len(phrases), voice, folder))
