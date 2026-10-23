@@ -178,8 +178,8 @@ def transcribe_all(rows, make_run, cache_path=None, budget=None):
     return done
 
 
-def bench(rows, texts, interpreter=None):
-    interpreter = interpreter or Interpreter()
+def bench(rows, texts, interpreter=None, wake_words=None):
+    interpreter = interpreter or Interpreter(wake_words) if wake_words else interpreter or Interpreter()
     out = []
     for name, expected, start, audio in rows:
         text, ms = texts[name]
@@ -209,6 +209,7 @@ def main(argv=None):
     ap.add_argument("--model-dir")
     ap.add_argument("--vosk-model")
     ap.add_argument("--engines", nargs="+", default=["whisper"], choices=sorted(ENGINES))
+    ap.add_argument("--wake", nargs="+", help="Palabras de activación (por defecto: secuencia)")
     ap.add_argument("--budget", type=float, help="Segundos máximos por motor; se continúa en la siguiente corrida")
     args = ap.parse_args(argv)
     rows = load(args.folder)
@@ -226,7 +227,7 @@ def main(argv=None):
         if len(texts) < len(rows):
             print("  %d de %d frases; vuelve a correrlo para continuar" % (len(texts), len(rows)))
             continue
-        results = bench(rows, texts)
+        results = bench(rows, texts, wake_words=tuple(args.wake) if args.wake else None)
         with open(Path(args.folder) / ("resultados-%s.tsv" % engine), "w", encoding="utf-8") as f:
             f.write("archivo\tesperado\tobtenido\tresultado\tms\ttexto\n")
             for r in results:

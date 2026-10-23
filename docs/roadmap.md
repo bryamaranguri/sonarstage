@@ -22,7 +22,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Remote Script SonarStage Link (JSON por TCP local) — **probado en Live 12.4.3** (21/10/2026)
 - [ ] Setlist al vuelo, avance y parada automáticos
 - [x] Loops y saltos cuantizados, extender sección (en el núcleo del puente)
-- [ ] Guía inteligente
+- [x] Guía inteligente — *se silencia mientras hay un salto pendiente o un bucle; falta el aviso hablado de la próxima sección cuando el salto no es lineal*
 - [ ] Mute/desmute instantáneo de pistas en vivo
 - [ ] Control por voz (offline, palabra de activación, confirmación en el click) — *listo en Terminal con confirmación en la barra de estado de Live; falta probarlo con el micrófono real y la confirmación audible*
 - [ ] Pedal MIDI

@@ -322,3 +322,22 @@ sonando, y 82 frases de habla normal a la banda («en negras», «coros en terce
 - Las secuencias completas como micrófono: ninguna orden. La guía leída sin palabra de
   activación: Vosk fuerza todo al vocabulario («baja la intensidad» → «bajo adelante
   enseguida» → Play). **La palabra de activación es la protección**: no se quita nunca.
+
+### «Banda» como palabra de activación y guía inteligente (23 de octubre)
+
+El micrófono del director llega a los in-ears de todos: «Banda, vamos al coro» +
+«Secuencia, vamos al coro» + la confirmación era demasiado. Ahora:
+
+- **«Banda» también activa.** El director lo dice una vez y la banda y la secuencia lo
+  oyen a la vez. Con Vosk: 85/86 órdenes bien, 0 equivocadas, 0 falsas alarmas en las
+  80 frases de habla normal y en las dos secuencias completas.
+- **Hablarle a la banda no es una orden.** Una sección solo es un salto si va sola
+  («Banda, coro») o con una palabra de movimiento («vamos al», «desde», «volvemos»):
+  «Banda, en el coro bajamos» o «Banda, el puente suave» no hacen nada. «Coros» ya no
+  significa «coro» (para una banda son las voces de apoyo: «coros en terceras»).
+- Una frase con palabra de activación que no es orden ni está a medias se descarta: ya
+  no se arrastra a la siguiente (había unido «once el verso» con «vamos al pre coro»).
+- **La confirmación dice dónde va a caer** («Coro dos», no «Coro»), como un aviso de guía.
+- **Guía inteligente** (puente): mientras hay un salto pendiente, una repetición o un
+  bucle, y hasta que el salto cae, la pista Guía se silencia, para que no anuncie lo que
+  venía en la grabación. Vuelve sola. Si el director la silenció a propósito, se respeta.

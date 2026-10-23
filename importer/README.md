@@ -76,7 +76,7 @@ python -m sonarstage_import.voice --device "<interfaz>" --channel 2 --model-dir 
 python -m sonarstage_import.voice --device "<interfaz>" --channel 2 --model-dir ../../material/modelos
 ```
 
-Siempre empieza con la palabra de activación: «Secuencia, repetimos» (una vez más; para
+Siempre empieza con la palabra de activación, «Banda» o «Secuencia»: «Banda, repetimos» (una vez más; para
 otra, se vuelve a decir), «Secuencia, en bucle» (hasta «seguimos»), «Secuencia,
 vamos al puente», «Secuencia, siguiente», «Secuencia, seguimos», «Secuencia, cancela»,
 «Secuencia, siguiente canción», «Secuencia, después va la canción tres», «Secuencia,

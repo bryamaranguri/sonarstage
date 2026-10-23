@@ -21,7 +21,9 @@ import difflib
 import re
 import unicodedata
 
-WAKE_WORDS = ("secuencia",)
+# "Banda, vamos al coro": the director says it once and the band and the sequence both hear
+# it. "Secuencia" for what is only for the sequence ("Secuencia, silencia la batería").
+WAKE_WORDS = ("secuencia", "banda")
 
 NUMBERS = {"uno": 1, "una": 1, "primer": 1, "primero": 1, "primera": 1, "one": 1,
            "dos": 2, "segundo": 2, "segunda": 2, "two": 2,
@@ -31,7 +33,8 @@ NUMBERS = {"uno": 1, "una": 1, "primer": 1, "primero": 1, "primera": 1, "one": 1
            "nueve": 9, "nine": 9, "diez": 10, "ten": 10, "once": 11, "doce": 12}
 
 # spoken word -> the word used in section names (names come from label.py, in Spanish)
-SECTION_WORDS = {"chorus": "coro", "estribillo": "coro", "coros": "coro", "verse": "verso",
+# ("coros" is not here: to a band it means backing vocals, "coros en terceras")
+SECTION_WORDS = {"chorus": "coro", "estribillo": "coro", "verse": "verso",
                  "estrofa": "verso", "versos": "verso", "bridge": "puente", "precoro": "precoro",
                  "prechorus": "precoro", "ending": "final", "outro": "final", "interlude": "interludio",
                  "inicio": "intro", "introduccion": "intro"}
@@ -268,6 +271,8 @@ def parse(text, sections=(), tracks=(), songs=(), current=None, wake_words=WAKE_
         missing = [GENERIC_SECTIONS[w] for w in _unglue(tokens, set(GENERIC_SECTIONS)) if w in GENERIC_SECTIONS]
         if missing and sections:
             return "Esta canción no tiene %s" % missing[0], []
+    if section and not _is_a_jump(tokens, section):
+        return None
     if section:
         shown = section[:1].upper() + section[1:]
         if _has(tokens, PLAY):
@@ -313,6 +318,21 @@ def _song_order(tokens, words, songs, song_number):
     return shown, [{"cmd": "song", "number": target}]
 
 
+MOVE = {"vamos", "vamonos", "ir", "al", "a", "pasamos", "pasa", "salta", "saltamos", "go", "to", "desde",
+        "volvemos", "regresamos", "entramos"}
+
+
+def _is_a_jump(tokens, section):
+    """A section name alone ("Secuencia, coro") or with a move word ("vamos al coro") is a
+    jump; a section in a sentence to the band ("en el coro bajamos") is not."""
+    if _has(tokens, MOVE | PLAY | REPEAT | NEXT):
+        return True
+    name = set(normalize(section))
+    rest = [w for w in tokens if w not in name and w not in {"el", "la", "y", "de", "del"} and not w.isdigit()
+            and not any(len(n) >= 4 and (w.endswith(n) or _like(w, n)) for n in name)]
+    return not rest
+
+
 def _same_section(spoken, current):
     if not current:
         return True
@@ -324,7 +344,7 @@ def order_words():
     """Every word an order can have, written as spoken (for closed-vocabulary engines)."""
     plain = set(WAKE_WORDS) | CANCEL | STOP | NEXT | PREVIOUS | LAST | SONG | MUTE | UNMUTE | HOLD | \
         REPEAT | RELEASE | PLAY | AFTER | SKIP | FILLER
-    spoken = {"canción", "batería", "guitarra", "bajo", "teclado", "guía", "clic", "metrónomo", "intro",
+    spoken = {"banda", "canción", "batería", "guitarra", "bajo", "teclado", "guía", "clic", "metrónomo", "intro",
               "verso", "pre", "coro", "puente", "final", "instrumental", "interludio", "tag", "uno", "dos",
               "tres", "cuatro", "cinco", "seis", "primera", "segunda", "tercera", "última", "próxima",
               "después", "más", "atrás", "continúa", "y"}

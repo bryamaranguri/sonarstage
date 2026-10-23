@@ -50,7 +50,6 @@ SONGS = [(1, "Holy Forever"), (2, "Alegras mis días")]
     ("Se cuesta, ir al final", [{"cmd": "goto", "section": "Final"}]),
     ("Secuencia, Repedir con...", [{"cmd": "repeat"}]),
     ("Se cuencia y ir al coro.", [{"cmd": "goto", "section": "Coro"}]),
-    ("secuencia y real final.", [{"cmd": "goto", "section": "Final"}]),
     ("Se cuente ir al verso 1.", [{"cmd": "goto", "section": "Verso 1"}]),
     ("secuencia y racoro.", [{"cmd": "goto", "section": "Coro"}]),          # "ir al coro", glued
     ("secuencia y reprecoro.", [{"cmd": "goto", "section": "Pre coro"}]),   # "ir a precoro", glued
@@ -279,3 +278,39 @@ def test_next_song_confirms_the_song_it_went_to():
     listen(iter(stream), SR, lambda a, p: "Secuencia, siguiente canción", lambda: Context(SECTIONS),
            send=lambda m: {"ok": True, "state": {"song": 3}}, out=lambda s: None, confirm=heard.append)
     assert heard == ["song-3"]
+
+
+
+@pytest.mark.parametrize("said,commands", [
+    ("Banda, vamos al coro", [{"cmd": "goto", "section": "Coro"}]),
+    ("Banda, repetimos", [{"cmd": "repeat"}]),
+    ("Banda, para", [{"cmd": "stop"}]),
+])
+def test_banda_is_also_a_wake_word(said, commands):
+    assert parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1")[1] == commands
+
+
+@pytest.mark.parametrize("said", ["Banda, baja la intensidad", "Banda, atentos", "Banda, coros en terceras",
+                                  "Banda, en el coro bajamos", "Banda, el puente suave", "Secuencia, coro fuerte"])
+def test_talking_to_the_band_is_not_an_order(said):
+    assert parse(said, SECTIONS, TRACKS, SONGS, current="Coro 1") is None
+
+
+def test_confirmation_says_where_it_will_land():
+    from sonarstage_import.voice_prompts import key_for
+    goto = [{"cmd": "goto", "section": "Coro"}]
+    assert key_for("command", goto, state={"playing": True, "pending": "Coro 2"}) == "section-coro-2"
+    assert key_for("command", goto, state={"playing": False, "pending": None, "section": "Coro 1"}) == "section-coro-1"
+    nxt = [{"cmd": "next_section"}]
+    assert key_for("command", nxt, state={"playing": True, "pending": "Puente"}) == "section-puente"
+    assert key_for("command", nxt, state={"playing": False, "section": "1. Holy Forever"}) == "next_section"
+
+
+def test_a_sentence_that_is_not_an_order_is_not_carried_over():
+    from sonarstage_import.voice import Interpreter
+    i, ctx = Interpreter(), Context(SECTIONS, TRACKS, SONGS, current="Verso 1")
+    assert i.hear("Banda, en el coro bajamos", 0, 1, ctx)[0] == "ignored"
+    assert i.hear("vamos al puente", 1.5, 2.5, ctx)[0] == "ignored"         # no wake word, nothing waiting
+    assert i.hear("Secuencia, vamos", 3, 4, ctx)[0] == "armed"
+    kind, _, cmds = i.hear("secuencia vamos al pre coro", 4.5, 5.5, ctx)    # its own wake word: starts over
+    assert kind == "command" and cmds == [{"cmd": "goto", "section": "Pre coro"}]

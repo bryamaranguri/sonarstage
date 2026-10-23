@@ -14,6 +14,9 @@ deciding when:
 - Repeat a section once: the same armed jump, back to the start of the section. Saying
   it again during the repeat repeats it again.
 - Hold a section (repeat until released): Live's own arrangement loop.
+- Smart guide: while a jump is pending, a hold is on, or until a jump has landed, the
+  guide track is muted, so it does not announce the section the recording had next.
+  It comes back by itself.
 - Go to another section: the jump is armed and fired during the last bar of the
   current section through the locator's jump(), with global quantization at one bar,
   so Live performs it on the next downbeat, which is where the section ends.
@@ -22,6 +25,7 @@ import re
 
 SONG_LOCATOR = re.compile(r"^\s*(\d+)\.\s+(.+)$")
 TRAILING_NUMBER = re.compile(r"\s+\d+$")
+GUIDE_NAMES = {"guía", "guia", "guide", "cues", "cue"}
 
 
 def base_name(name):
@@ -50,6 +54,8 @@ class LinkCore(object):
         self.parked = None                            # where we left the stopped transport
         self.order = None                             # play order (song numbers); None = as arranged
         self.verify_start = None                      # where the last play had to start
+        self.landing = None                           # (target, beat it was fired at)
+        self.guide_quieted = []                       # guide tracks muted by the smart guide
         self.autostop = True
         self._last_beat = None
         self.sections = []
@@ -198,6 +204,7 @@ class LinkCore(object):
         except Exception as e:      # never let a bad message break the show
             self.log("%r -> error: %r" % (msg, e))
             return {"ok": False, "error": str(e), "state": self.state()}
+        self._smart_guide()
         if cmd not in ("status", "setlist", "refresh"):
             self.log("%r -> ok" % (msg,))         # Log.txt shows what each command did
         return {"ok": True, "state": self.state()}
@@ -308,6 +315,8 @@ class LinkCore(object):
         key = name.strip().lower()
         for t in self.song.tracks:
             if t.name.strip().lower() == key:
+                if t in self.guide_quieted:
+                    self.guide_quieted.remove(t)      # what the director asks for wins
                 t.mute = on
                 return
         raise ValueError("no hay una pista llamada %r" % name)
@@ -337,7 +346,31 @@ class LinkCore(object):
                         self._park(target)
                         beat = target
                         break
+        self._check_landing(beat)
+        self._smart_guide()
         self._last_beat = beat
+
+    def _check_landing(self, beat):
+        if self.landing is None:
+            return
+        target, fired = self.landing
+        bar = self.bar_length()
+        landed = target.start - 1e-6 <= beat < target.start + bar and (beat < fired or target.start >= fired)
+        if landed or beat >= fired + 2 * bar or not self.song.is_playing:
+            self.landing = None
+
+    def _smart_guide(self):
+        want = bool(self.song.is_playing and (self.pending is not None or self.song.loop
+                                              or self.landing is not None))
+        if want and not self.guide_quieted:
+            for t in self.song.tracks:
+                if t.name.strip().lower() in GUIDE_NAMES and not t.mute:
+                    t.mute = True
+                    self.guide_quieted.append(t)
+        elif not want and self.guide_quieted:
+            for t in self.guide_quieted:
+                t.mute = False
+            self.guide_quieted = []
 
     def _maybe_fire(self):
         if self.pending is None:
@@ -351,6 +384,7 @@ class LinkCore(object):
             if self.bar_quantization is not None:
                 self.song.clip_trigger_quantization = self.bar_quantization
             target, self.pending = self.pending, None
+            self.landing = (target, beat)
             target.cue.jump()                 # Live performs it on the next downbeat
 
     # --- state -------------------------------------------------------------------------
@@ -373,6 +407,7 @@ class LinkCore(object):
             "pending": self.pending.name if self.pending else None,
             "autostop": self.autostop,
             "next_song": self._next_title(current),
+            "guide_quiet": bool(self.guide_quieted),
         }
 
     def _next_title(self, current):

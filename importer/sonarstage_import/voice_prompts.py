@@ -66,8 +66,9 @@ def _track_key(track):
     return next((w for w in words if w in TRACK_WORDS), words[0] if words else "")
 
 
-def key_for(kind, commands, errors=()):
-    """The phrase that confirms what was done (None: nothing to say)."""
+def key_for(kind, commands, errors=(), state=None):
+    """The phrase that confirms what was done (None: nothing to say). With Ableton's reply
+    (`state`), a jump is confirmed with the section it will really land on ("Coro dos")."""
     if kind == "refused":
         return "refused"
     if kind != "command" or not commands:
@@ -76,7 +77,13 @@ def key_for(kind, commands, errors=()):
         return "error"
     c = commands[0]
     cmd = c["cmd"]
-    if cmd == "goto":
+    state = state or {}
+    if cmd in ("goto", "next_section"):
+        name = state.get("pending") or (state.get("section") if cmd == "goto" or not state.get("playing") else None)
+        if name and not re.match(r"^\s*\d+\.\s", name):          # a song locator is not a section
+            return "section-" + slug(name)
+        if cmd == "next_section":
+            return "next_section"
         return "section-" + slug(c["section"])
     if cmd == "song":
         return "song-%d" % c["number"]

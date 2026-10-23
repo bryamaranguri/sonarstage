@@ -337,3 +337,56 @@ def test_play_after_choosing_a_song_even_if_live_resumes_elsewhere():
     assert 0 <= song.current_song_time < 1 and core.state()["song"] == 1
     run(core, song, 8)
     assert song.is_playing and core.state()["song"] == 1
+
+
+def guide_song():
+    song = FakeSong(CUES)
+    song.tracks.append(Track("Guía"))
+    return song, LinkCore(song, bar_quantization=Q_BAR), song.tracks[-1]
+
+
+def test_smart_guide_is_quiet_until_the_jump_lands():
+    song, core, guide = guide_song()
+    song.current_song_time = 26.0                     # "Sección 2" (24–40)
+    song.continue_playing()
+    core.handle({"cmd": "goto", "section": "Sección 1"})
+    assert guide.mute                                 # at once: the recording would announce Sección 3
+    run(core, song, 12)
+    assert guide.mute                                 # still pending
+    run(core, song, 4.4)                              # fires, lands at 8
+    assert 8 <= song.current_song_time < 12
+    run(core, song, 0.4)
+    assert not guide.mute and not core.state()["guide_quiet"]
+
+
+def test_smart_guide_with_repeat_hold_and_cancel():
+    song, core, guide = guide_song()
+    song.current_song_time = 26.0
+    song.continue_playing()
+    core.handle({"cmd": "repeat"})
+    assert guide.mute
+    run(core, song, 16.4)                             # back at the start of the same section
+    assert song.jumps == [(40, 24)] and not guide.mute
+    core.handle({"cmd": "goto", "section": "Sección 3"})
+    core.handle({"cmd": "cancel"})
+    assert not guide.mute
+    core.handle({"cmd": "hold"})
+    run(core, song, 20)
+    assert guide.mute                                 # while it loops
+    core.handle({"cmd": "release"})
+    assert not guide.mute
+
+
+def test_smart_guide_respects_the_director():
+    song, core, guide = guide_song()
+    guide.mute = True                                 # muted on purpose
+    song.current_song_time = 26.0
+    song.continue_playing()
+    core.handle({"cmd": "goto", "section": "Sección 1"})
+    run(core, song, 20)
+    assert guide.mute                                 # we did not mute it, we do not unmute it
+    guide.mute = False
+    core.handle({"cmd": "goto", "section": "Sección 3"})
+    core.handle({"cmd": "mute", "track": "Guía", "on": True})    # "quita la guía" while pending
+    run(core, song, 30)
+    assert guide.mute                                 # stays as asked

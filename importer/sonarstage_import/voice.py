@@ -263,6 +263,13 @@ class Context(object):
         return PROMPT
 
 
+def _unfinished(rest):
+    """Only "Secuencia…" or "Secuencia, vamos…" wait for the rest; a whole sentence that is
+    not an order ("Banda, en el coro bajamos") is dropped, not carried into the next one."""
+    from .voice_commands import FILLER, MOVE
+    return all(w in FILLER or w in MOVE for w in rest.split())
+
+
 class Interpreter(object):
     """Text of each phrase -> what to do, with the wake word memory between phrases.
 
@@ -287,13 +294,15 @@ class Interpreter(object):
         """(kind, label, commands): kind is 'ignored', 'armed', 'refused' or 'command'."""
         if not text:
             return "ignored", "", []
-        armed = self.armed_until is not None and start <= self.armed_until
+        own = None if not self.wake_words else wake_rest(text, self.wake_words)
+        # a phrase with its own wake word starts over: what was waiting is dropped
+        armed = own is None and self.armed_until is not None and start <= self.armed_until
         said = (self.prefix + " " + text).strip() if armed else text
-        rest = None if armed or not self.wake_words else wake_rest(text, self.wake_words)
+        rest = None if armed else own
         result = parse(said, ctx.sections, ctx.tracks, ctx.songs, ctx.current,
                        () if armed else self.wake_words, song_number=ctx.song_number)
         self.armed_until, self.prefix = None, ""
-        if result is None and rest is not None:
+        if result is None and rest is not None and _unfinished(rest):
             self.armed_until, self.prefix = end + ARMED_SECONDS, rest
             return "armed", "…", []
         if result is None:
@@ -365,7 +374,7 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
             ms = (time.monotonic() - t0) * 1000 + seg.end_quiet_ms          # after you stop talking
             kind, label, commands = interpreter.hear(text, start, end, ctx)
             where = "%7.1f s" % start
-            errors = []
+            errors, reply_state = [], None
             if kind == "armed":
                 out("%s  «%s»  … te escucho" % (where, text))
             elif kind == "ignored":
@@ -380,6 +389,7 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
             else:
                 for cmd in commands:
                     r = send(cmd)
+                    reply_state = r.get("state")
                     if not r.get("ok"):
                         errors.append(r.get("error", "?"))
                     elif cmd["cmd"] == "next_song" and (r.get("state") or {}).get("song"):
@@ -392,7 +402,7 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
                     send({"cmd": "message", "text": "Voz: " + label})
             if confirm is not None:
                 from .voice_prompts import key_for
-                key = key_for(kind, commands, errors)
+                key = key_for(kind, commands, errors, reply_state)
                 if key:
                     confirm(key)
             if log is not None:
@@ -450,7 +460,8 @@ def main(argv=None):
     ap.add_argument("--model", default="small")
     ap.add_argument("--model-dir")
     ap.add_argument("--language", default="es")
-    ap.add_argument("--wake", default=WAKE_WORDS[0], help="Palabra de activación (por defecto: secuencia)")
+    ap.add_argument("--wake", nargs="+", default=list(WAKE_WORDS),
+                    help="Palabras de activación (por defecto: secuencia banda)")
     ap.add_argument("--no-wake", action="store_true", help="Sin palabra de activación (solo para pruebas)")
     ap.add_argument("--dry-run", action="store_true", help="Escuchar y mostrar, sin enviar nada a Ableton")
     ap.add_argument("--record", help="Carpeta donde guardar cada frase (WAV + registro.tsv) para pruebas")
@@ -463,7 +474,7 @@ def main(argv=None):
     if args.devices:
         list_devices()
         return 0
-    wake = () if args.no_wake else (args.wake.lower(),)
+    wake = () if args.no_wake else tuple(w.lower() for w in args.wake)
     print("Cargando el modelo de voz…", flush=True)
     if args.engine is None:
         has_vosk = args.model_dir and any(Path(args.model_dir).glob("vosk-model*es*"))
@@ -488,7 +499,7 @@ def main(argv=None):
         if not args.dry_run and not Context.from_link().live:
             print(link_client.NOT_RUNNING)
         print("Escuchando (entrada %d, %d Hz). Di «%s, …». Ctrl+C para salir." % (
-            args.channel, sr, wake[0].capitalize() if wake else "…"), flush=True)
+            args.channel, sr, "» o «".join(w.capitalize() for w in wake) if wake else "…"), flush=True)
     confirm = None
     voices = Path(args.voices) if args.voices else (Path(args.model_dir).parent / "voces" if args.model_dir else None)
     if not args.file and not args.no_confirm:
