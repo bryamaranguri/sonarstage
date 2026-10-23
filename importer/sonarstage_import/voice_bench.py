@@ -87,6 +87,31 @@ def vosk(args):
     return lambda audio: t(audio)
 
 
+def vosk_stream(args):
+    """Vosk recognizing while the phrase is spoken; 'ms' is the silence waited after the
+    last word before the order is decided (what the director feels), not compute time."""
+    from .voice import Interpreter, Segmenter, VoskTranscriber, settle_ms, file_blocks  # noqa: F401
+    t = VoskTranscriber(args.model_dir)
+    peek = Interpreter()
+
+    def run(audio):
+        holder = {}
+        stream = t.stream(16000, lambda: None,
+                          lambda text: settle_ms(peek.peek(text, 0, context())[0], text, context()))
+        seg = Segmenter(16000, stream=stream)
+        pieces = []                                   # a recording may hold the phrase and some noise
+        for block in [audio[i:i + 800] for i in range(0, len(audio), 800)] + [np.zeros(16000, np.float32)]:
+            for _ in seg.feed(block):
+                text = stream.final()
+                if text:
+                    pieces.append(text)
+                    holder.setdefault("quiet", seg.end_quiet_ms)
+        run.quiet = holder.get("quiet", 0)
+        return " ".join(pieces)
+    run.quiet = 0
+    return run
+
+
 def mlx_prompt(args):
     from .voice import MLXTranscriber
     t = MLXTranscriber()
@@ -100,6 +125,7 @@ ENGINES = {
     "mlx-turbo": mlx("mlx-community/whisper-large-v3-turbo"),
     "mlx-turbo-prompt": mlx_prompt,
     "vosk": vosk,
+    "vosk-stream": vosk_stream,
 }
 
 
@@ -142,7 +168,10 @@ def transcribe_all(rows, make_run, cache_path=None, budget=None):
             break
         t0 = time.monotonic()
         text = run(audio)
-        done[name] = (text, (time.monotonic() - t0) * 1000)
+        ms = (time.monotonic() - t0) * 1000
+        if hasattr(run, "quiet"):
+            ms = run.quiet                            # streaming: silence waited after the last word
+        done[name] = (text, ms)
         if cache:
             cache.write("%s\t%.0f\t%s\n" % (name, done[name][1], text.replace("\t", " ")))
             cache.flush()

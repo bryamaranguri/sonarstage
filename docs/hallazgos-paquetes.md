@@ -302,3 +302,23 @@ sonando, y 82 frases de habla normal a la banda («en negras», «coros en terce
   desde el coro suele ser el 2, pero no siempre.
 - Con las secuencias completas de las dos canciones como micrófono: ninguna orden falsa.
 - Turbo es la alternativa (`--engine mlx`): 1.6 GB, solo Apple Silicon, más lento en una M1.
+
+### Vosk mientras hablas (22 de octubre)
+
+- **Reconocer mientras se habla:** Vosk escucha la frase a medida que llega; el silencio
+  que la cierra depende de lo que ya se dijo. Orden completa: 200 ms. Termina en una
+  sección con números en esta canción («coro» → ¿«coro dos»?): 300 ms. Puede seguir
+  («siguiente» → ¿«siguiente canción»?) o no es orden todavía: 400 ms.
+- Medido en las grabaciones: dentro de una orden las palabras van a ≤0.1 s (90 %),
+  0.24 s en el peor caso; tras «Secuencia» ≤0.3 s.
+- **Frases en el vocabulario:** con palabras sueltas Vosk perdía el número («vamos
+  verso» por «vamos al verso dos»). Con «verso dos», «coro tres»… como frases, lo oye.
+
+| Vosk | Órdenes bien | Otra orden | Falsas alarmas | Silencio hasta decidir |
+|---|---|---|---|---|
+| Frase completa, 400 ms | 83/84 (99 %) | 0 | 0/82 | 400 ms |
+| **Mientras hablas** | **82/84 (98 %)** | **0** | **0/82** | **200 ms** (mediana), 300 ms o menos en la mayoría |
+
+- Las secuencias completas como micrófono: ninguna orden. La guía leída sin palabra de
+  activación: Vosk fuerza todo al vocabulario («baja la intensidad» → «bajo adelante
+  enseguida» → Play). **La palabra de activación es la protección**: no se quita nunca.

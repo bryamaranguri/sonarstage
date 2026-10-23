@@ -328,4 +328,9 @@ def order_words():
               "verso", "pre", "coro", "puente", "final", "instrumental", "interludio", "tag", "uno", "dos",
               "tres", "cuatro", "cinco", "seis", "primera", "segunda", "tercera", "última", "próxima",
               "después", "más", "atrás", "continúa", "y"}
-    return sorted(plain | spoken)
+    # whole phrases too: with only loose words Vosk dropped the number ("vamos verso" for
+    # "vamos al verso dos", 2 of 5); with "verso dos" as a phrase it heard it
+    numbers = ["uno", "dos", "tres", "cuatro"]
+    phrases = {"%s %s" % (w, n) for w in ("verso", "coro", "pre coro", "puente", "canción") for n in numbers}
+    phrases |= {"canción %s" % n for n in ("cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce")}
+    return sorted(plain | spoken | phrases)

@@ -39,8 +39,11 @@ class Segmenter(object):
     """Cuts a stream into utterances by level, against an adaptive noise floor."""
 
     def __init__(self, sr, frame_ms=20, min_db=-50.0, margin_db=12.0, start_ms=60, hang_ms=400,
-                 preroll_ms=300, max_s=6.0, min_s=0.25):
+                 preroll_ms=300, max_s=6.0, min_s=0.25, stream=None):
         self.sr = sr
+        self.frame_ms = frame_ms
+        self.stream = stream            # recognizes while you talk and may end the phrase sooner
+        self.end_quiet_ms = hang_ms     # silence waited before the last phrase was closed
         self.frame = int(sr * frame_ms / 1000)
         self.min_db, self.margin_db = min_db, margin_db
         self.start_frames = max(1, start_ms // frame_ms)
@@ -82,10 +85,17 @@ class Segmenter(object):
             if self.loud >= self.start_frames:
                 self.active, self.cur, self.quiet = True, list(self.pre), 0
                 self.start_sample = self.samples_seen - (len(self.cur) - 1) * self.frame
+                if self.stream is not None:
+                    self.stream.start(self.cur)
             return None
         self.cur.append(f)
         self.quiet = 0 if loud else self.quiet + 1
-        if self.quiet >= self.hang_frames or len(self.cur) >= self.max_frames:
+        early = False
+        if self.stream is not None:
+            self.stream.frame(f)
+            early = self.quiet > 0 and self.stream.done(self.quiet * self.frame_ms)
+        if early or self.quiet >= self.hang_frames or len(self.cur) >= self.max_frames:
+            self.end_quiet_ms = self.quiet * self.frame_ms
             audio = np.concatenate(self.cur)
             self.active, self.cur, self.loud = False, [], 0
             self.pre.clear()
@@ -136,12 +146,55 @@ class VoskTranscriber(object):
         SetLogLevel(-2)                 # also quiet "word missing in vocabulary" (they are skipped)
         path = next(Path(model_dir).glob("vosk-model*es*"))
         self.json = _json
-        self.rec = KaldiRecognizer(Model(str(path)), SR, _json.dumps(order_words() + ["[unk]"], ensure_ascii=False))
+        self.model = Model(str(path))
+        self.grammar = _json.dumps(order_words() + ["[unk]"], ensure_ascii=False)
+        self.rec = KaldiRecognizer(self.model, SR, self.grammar)
 
     def __call__(self, audio_16k, prompt=None):
         self.rec.Reset()
-        self.rec.AcceptWaveform((np.clip(audio_16k, -1, 1) * 32767).astype("<i2").tobytes())
-        return self.json.loads(self.rec.FinalResult()).get("text", "").replace("[unk]", "").strip()
+        self.rec.AcceptWaveform(_pcm16(audio_16k))
+        return _clean(self.json.loads(self.rec.FinalResult()).get("text", ""))
+
+    def stream(self, sr, on_start, settle):
+        """Recognize while the phrase is spoken. `settle(text)` says how much silence (ms)
+        closes it, or None to wait the full time."""
+        from vosk import KaldiRecognizer
+        return VoskStream(KaldiRecognizer(self.model, sr, self.grammar), self.json, on_start, settle)
+
+
+def _pcm16(x):
+    return (np.clip(x, -1, 1) * 32767).astype("<i2").tobytes()
+
+
+def _clean(text):
+    return " ".join(w for w in text.split() if w != "[unk]")
+
+
+class VoskStream(object):
+    def __init__(self, rec, json_module, on_start, settle):
+        self.rec, self.json, self.on_start, self.settle = rec, json_module, on_start, settle
+        self.said = []
+
+    def start(self, frames):
+        self.rec.Reset()
+        self.said = []
+        self.on_start()
+        for f in frames:
+            self.frame(f)
+
+    def frame(self, f):
+        if self.rec.AcceptWaveform(_pcm16(f)):          # Vosk closed a piece on its own
+            self.said.append(_clean(self.json.loads(self.rec.Result()).get("text", "")))
+
+    def text_so_far(self):
+        return " ".join(self.said + [_clean(self.json.loads(self.rec.PartialResult()).get("partial", ""))]).strip()
+
+    def done(self, quiet_ms):
+        need = self.settle(self.text_so_far())
+        return need is not None and quiet_ms >= need
+
+    def final(self):
+        return " ".join(self.said + [_clean(self.json.loads(self.rec.FinalResult()).get("text", ""))]).strip()
 
 
 class Context(object):
@@ -185,6 +238,14 @@ class Interpreter(object):
         self.wake_words = wake_words
         self.armed_until, self.prefix = None, ""
 
+    def peek(self, text, start, ctx):
+        """What `text` would do now, without remembering anything (for streaming engines)."""
+        saved = self.armed_until, self.prefix
+        try:
+            return self.hear(text, start, start, ctx)
+        finally:
+            self.armed_until, self.prefix = saved
+
     def hear(self, text, start, end, ctx):
         """(kind, label, commands): kind is 'ignored', 'armed', 'refused' or 'command'."""
         if not text:
@@ -204,13 +265,49 @@ class Interpreter(object):
         return ("command" if commands else "refused"), label, commands
 
 
+# Silence that closes a phrase. Measured on Bryam's recordings: inside an order words are
+# at most ~0.1 s apart (90 %), 0.24 s at worst ("vamos… verso").
+SETTLE_DONE_MS = 200       # the phrase is already a whole order that cannot go on
+SETTLE_NUMBER_MS = 300     # it ends in a section that has numbers here ("coro" → "coro dos"?)
+WAIT_FOR_MORE = {"siguiente", "proxima", "proximo", "next", "otra", "una", "vez", "al", "a", "la", "el",
+                 "de", "del", "vamos", "ir", "secuencia"}
+
+
+def settle_ms(kind, text, ctx):
+    """How much silence closes the phrase `text` (None: the full wait, it is not an order yet)."""
+    if kind != "command":
+        return None
+    from .voice_commands import normalize
+    words = normalize(text)
+    last = words[-1] if words else ""
+    if last in WAIT_FOR_MORE:
+        return None
+    numbered = set()
+    for name in ctx.sections:
+        w = normalize(name)
+        if len(w) > 1 and w[-1].isdigit():
+            numbered.update(w[:-1])
+    return SETTLE_NUMBER_MS if last in numbered else SETTLE_DONE_MS
+
+
 def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False,
            send=link_client.send, out=print, record=None):
     """Main loop. `blocks` yields mono float arrays at `sr`; `context` returns a Context.
     `record` (a folder) keeps every phrase as a WAV plus a line in registro.tsv."""
-    seg = Segmenter(sr)
     up, down = SR // gcd(SR, sr), sr // gcd(SR, sr)
     interpreter = Interpreter(wake_words)
+    holder = {"ctx": None, "start": 0.0}
+    stream = None
+    if hasattr(transcribe, "stream"):
+        def on_start():
+            holder["ctx"] = context()
+
+        def settle(text):
+            ctx = holder["ctx"] or Context()
+            kind, _, _ = interpreter.peek(text, seg.start_sample / sr, ctx)
+            return settle_ms(kind, text, ctx)
+        stream = transcribe.stream(sr, on_start, settle)
+    seg = Segmenter(sr, stream=stream)
     n, log = 0, None
     if record:
         Path(record).mkdir(parents=True, exist_ok=True)
@@ -218,13 +315,17 @@ def listen(blocks, sr, transcribe, context, wake_words=WAKE_WORDS, dry_run=False
     for block in blocks:
         for start, utt in seg.feed(block):
             end = start + len(utt) / sr
+            t0 = time.monotonic()
+            if stream is not None:
+                ctx = holder["ctx"] or context()
+                text = stream.final()
             if sr != SR:
                 from scipy.signal import resample_poly
                 utt = resample_poly(utt, up, down).astype(np.float32)
-            ctx = context()
-            t0 = time.monotonic()
-            text = transcribe(utt, ctx.prompt())
-            ms = (time.monotonic() - t0) * 1000 + seg.hang_frames * 20     # after you stop talking
+            if stream is None:
+                ctx = context()
+                text = transcribe(utt, ctx.prompt())
+            ms = (time.monotonic() - t0) * 1000 + seg.end_quiet_ms          # after you stop talking
             kind, label, commands = interpreter.hear(text, start, end, ctx)
             where = "%7.1f s" % start
             if kind == "armed":
