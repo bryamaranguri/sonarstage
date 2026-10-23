@@ -314,3 +314,13 @@ def test_a_sentence_that_is_not_an_order_is_not_carried_over():
     assert i.hear("Secuencia, vamos", 3, 4, ctx)[0] == "armed"
     kind, _, cmds = i.hear("secuencia vamos al pre coro", 4.5, 5.5, ctx)    # its own wake word: starts over
     assert kind == "command" and cmds == [{"cmd": "goto", "section": "Pre coro"}]
+
+
+def test_finds_the_spanish_voice_of_macos():
+    from sonarstage_import.voice_prompts import spanish_voice
+    listing = """Albert              en_US    # Hello! My name is Albert.
+Eddy (Spanish (Spain)) es_ES    # ¡Hola! Me llamo Eddy.
+Paulina (Enhanced)  es_MX    # ¡Hola! Me llamo Paulina.
+Samantha            en_US    # Hello! My name is Samantha."""
+    assert spanish_voice(listing) == "Paulina (Enhanced)"
+    assert spanish_voice("Albert   en_US  # Hi") is None

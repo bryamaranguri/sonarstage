@@ -98,18 +98,20 @@ def key_for(kind, commands, errors=(), state=None):
 
 # --- rendering (macOS) --------------------------------------------------------------------
 
-def spanish_voice():
-    listing = subprocess.run(["say", "-v", "?"], capture_output=True, text=True).stdout
+def spanish_voice(listing=None):
+    """First Spanish voice of `say -v ?` (lines like "Paulina (Enhanced)   es_MX   # Hola…")."""
+    if listing is None:
+        listing = subprocess.run(["say", "-v", "?"], capture_output=True, text=True).stdout
     voices = []
     for line in listing.splitlines():
-        m = re.match(r"^(.+?)\s{2,}(\w\w_\w+)", line)
+        m = re.search(r"\s(es[_-][A-Za-z0-9]+)\b", line.split("#")[0])
         if m:
-            voices.append((m.group(1).strip(), m.group(2)))
+            voices.append((line[:m.start()].strip(), m.group(1).replace("-", "_")))
     for lang in PREFERRED_VOICES:
         for name, code in voices:
             if code == lang:
                 return name
-    return None
+    return voices[0][0] if voices else None
 
 
 def level(x):
@@ -132,7 +134,9 @@ def render(folder, voice=None, rate=210):
     folder.mkdir(parents=True, exist_ok=True)
     voice = voice or spanish_voice()
     if voice is None:
-        raise SystemExit("No encontré una voz en español de macOS (Ajustes > Accesibilidad > Contenido hablado).")
+        raise SystemExit("No encontré una voz en español de macOS. Instala una en Ajustes del Sistema >\n"
+                         "Accesibilidad > Contenido hablado > Voz del sistema > Gestionar voces > Español\n"
+                         "(por ejemplo Paulina, México) y vuelve a correr este comando.")
     phrases = catalog()
     for i, (key, text) in enumerate(sorted(phrases.items()), 1):
         tmp = folder / (key + ".tmp.wav")
