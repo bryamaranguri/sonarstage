@@ -49,22 +49,45 @@ export function Rack({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Bat toggle switch (ON up / OFF down). */
-export function Toggle({ on, onClick, top = "ON", bottom = "OFF", label }: {
-  on: boolean; onClick?: () => void; top?: string; bottom?: string; label?: string;
+/** Bat toggle switch (ON up / OFF down): chrome lever on a hex nut. `look="latch"` draws
+ * the alternative: a square latching key with its own light. */
+export function Toggle({ on, onClick, top = "ON", bottom = "OFF", label, look = "bat" }: {
+  on: boolean; onClick?: () => void; top?: string; bottom?: string; label?: string; look?: "bat" | "latch";
 }) {
+  if (look === "latch") {
+    return (
+      <div className="toggle-wrap latch-wrap">
+        <button className={`latch ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? top}>
+          <span className="latch-light" />
+        </button>
+        <span className="silk">{on ? top : bottom}</span>
+      </div>
+    );
+  }
+  const tipY = on ? 8 : 64, baseY = 36;
   return (
     <div className="toggle-wrap">
-      <span className="silk">{top}</span>
+      <span className={`silk ${on ? "lit" : "dim"}`}>{top}</span>
       <button className={`bat ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? top}>
-        <svg viewBox="0 0 40 56" aria-hidden>
-          <polygon points="20,10 33,18 33,38 20,46 7,38 7,18" className="bat-nut" />
-          <circle cx="20" cy="28" r="7" className="bat-base" />
-          <line x1="20" y1="28" x2="20" y2={on ? 6 : 50} className="bat-lever" />
-          <circle cx="20" cy={on ? 7 : 49} r="4.5" className="bat-tip" />
+        <svg viewBox="0 0 56 72" aria-hidden>
+          <defs>
+            <linearGradient id="nutG" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#d9c3bd" /><stop offset=".45" stopColor="#7d625c" /><stop offset="1" stopColor="#3b2b28" />
+            </linearGradient>
+            <radialGradient id="ringG" cx="40%" cy="35%" r="70%">
+              <stop offset="0" stopColor="#f4ece8" /><stop offset=".6" stopColor="#9c8a85" /><stop offset="1" stopColor="#4c3d3a" />
+            </radialGradient>
+            <linearGradient id="leverG" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#8f8a88" /><stop offset=".35" stopColor="#ffffff" /><stop offset=".7" stopColor="#c8c2bf" /><stop offset="1" stopColor="#6d6765" />
+            </linearGradient>
+          </defs>
+          <polygon points="28,14 46,24 46,48 28,58 10,48 10,24" fill="url(#nutG)" stroke="#2a1d1b" strokeWidth="1.2" />
+          <circle cx="28" cy={baseY} r="10" fill="url(#ringG)" stroke="#2e2220" strokeWidth="1" />
+          <path d={`M24.5 ${baseY} L26 ${tipY} L30 ${tipY} L31.5 ${baseY} Z`} fill="url(#leverG)" stroke="#4a4442" strokeWidth=".8" />
+          <ellipse cx="28" cy={tipY} rx="4.6" ry="3.6" fill="url(#leverG)" stroke="#4a4442" strokeWidth=".8" />
         </svg>
       </button>
-      <span className="silk">{bottom}</span>
+      <span className={`silk ${on ? "dim" : "lit"}`}>{bottom}</span>
     </div>
   );
 }

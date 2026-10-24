@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/components/hardware.tsx","./src/pages/Library.tsx","./src/pages/Live.tsx","./src/pages/Matrix.tsx","./src/pages/Settings.tsx","./src/pages/Show.tsx"],"version":"5.6.3"}
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/components/hardware.tsx","./src/pages/Library.tsx","./src/pages/Live.tsx","./src/pages/Matrix.tsx","./src/pages/Samples.tsx","./src/pages/Settings.tsx","./src/pages/Show.tsx"],"version":"5.6.3"}

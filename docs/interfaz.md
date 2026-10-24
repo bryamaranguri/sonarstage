@@ -18,8 +18,14 @@ John Mayer X). Se toma la sensación, no la marca: dibujos propios en CSS/SVG.
   **interruptores de palanca** ON/OFF, **LED verde**, **medidor de aguja** (cuánto falta
   para el final de la sección; la zona naranja es el último compás, donde se dispara un
   salto), **pantallas** negras con texto ámbar, **faders** con escala (estilo del Reverb).
-- Elementos que eligió Bryam (24/10): **foco LED**, **palanca ON/OFF**, **domo crema**,
-  **equipo dorado** completo (módulo VOZ), **medidor VU** con números (compases de la
+- **Paleta (una familia, un trabajo por color):** sala de madera oscura; **chasis** azul
+  pizarra en todos los equipos; **borde** cobre; **control** crema (lo que se toca);
+  **ámbar** = pantallas y lo que va a pasar; **verde** = encendido/suena; **rojo** = parar
+  o error. El dorado de la referencia era la forma de un equipo real, no un color a usar.
+- Forma de **equipo real** para cada módulo: chasis grueso redondeado, borde superior
+  iluminado, laterales más oscuros, patas de goma.
+- Muestrario de todas las piezas en `#muestras` (para elegir y ajustar).
+- Elementos que eligió Bryam (24/10): **foco LED**, **palanca ON/OFF**, **domo crema**, **medidor VU** con números (compases de la
   sección), **selector de 3–4 posiciones** (rueda blanca dentada: modo de salto
   SECCIÓN / COMPÁS / YA), **palanca naranja de 3 posiciones** (activación: AMBAS /
   SECUENCIA / BANDA), **pantalla con barras** (avance de sección y canción), faders y

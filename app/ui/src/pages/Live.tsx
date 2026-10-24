@@ -220,7 +220,7 @@ function VoiceUnit() {
   };
   const shown = lines.slice(-4);
   return (
-    <RackUnit title="VOZ" subtitle="Control por voz" tone="gold" side={
+    <RackUnit title="VOZ" subtitle="Control por voz" side={
       <div className="side-col">
         <Led on={running} />
         <Toggle on={running} top="ON" bottom="OFF" label="Voz" onClick={toggle} />

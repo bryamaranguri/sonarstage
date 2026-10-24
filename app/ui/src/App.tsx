@@ -6,9 +6,10 @@ import LibraryPage from "./pages/Library";
 import ShowPage from "./pages/Show";
 import SettingsPage from "./pages/Settings";
 import MatrixPage from "./pages/Matrix";
+import SamplesPage from "./pages/Samples";
 
-type Page = "live" | "library" | "show" | "matrix" | "settings";
-const PAGES: { id: Page; label: string }[] = [
+type Page = "live" | "library" | "show" | "matrix" | "settings" | "muestras";
+const PAGES: { id: Exclude<Page, "muestras">; label: string }[] = [
   { id: "live", label: "En vivo" },
   { id: "library", label: "Biblioteca" },
   { id: "show", label: "Show" },
@@ -18,7 +19,7 @@ const PAGES: { id: Page; label: string }[] = [
 
 function readPage(): Page {
   const h = window.location.hash.replace("#", "") as Page;
-  return PAGES.some((p) => p.id === h) ? h : "live";
+  return PAGES.some((p) => p.id === h) || h === "muestras" ? h : "live";
 }
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
         {page === "show" && <ShowPage />}
         {page === "matrix" && <MatrixPage />}
         {page === "settings" && <SettingsPage />}
+        {page === "muestras" && <SamplesPage />}
       </main>
       <footer className="statusbar">
         <span className={live?.ok ? "ok" : "bad"}><i />ABLETON</span>
