@@ -95,8 +95,8 @@ function BatSvg({ on }: { on: boolean }) {
   // lever: from the bushing toward the tip, foreshortened (seen a bit from above)
   const tip = on ? { x: cx + 3, y: cy - 50 } : { x: cx + 3, y: cy + 46 };
   const dir = on ? -1 : 1;
-  const baseW = 6, tipW = 3.4;
-  const lever = `M${cx - baseW} ${cy} L${tip.x - tipW} ${tip.y - dir * 2} L${tip.x + tipW} ${tip.y - dir * 2} L${cx + baseW} ${cy} Z`;
+  const baseW = 3.9, tipW = 3.1, from = cy + dir * 1.2;        // the lever leaves the slot in the dome
+  const lever = `M${cx - baseW} ${from} L${tip.x - tipW} ${tip.y - dir * 2} L${tip.x + tipW} ${tip.y - dir * 2} L${cx + baseW} ${from} Z`;
   return (
     <svg viewBox="0 0 100 124" aria-hidden>
       <defs>
@@ -113,6 +113,10 @@ function BatSvg({ on }: { on: boolean }) {
           <stop offset="0" stopColor="#ffffff" /><stop offset=".35" stopColor="#e6e0dd" />
           <stop offset=".8" stopColor="#7a7371" /><stop offset="1" stopColor="#3d3735" />
         </radialGradient>
+        <radialGradient id={id + "dome"} cx="36%" cy="30%" r="80%">
+          <stop offset="0" stopColor="#ffffff" /><stop offset=".25" stopColor="#d6ccc8" />
+          <stop offset=".6" stopColor="#7d6c68" /><stop offset="1" stopColor="#2f2422" />
+        </radialGradient>
         <filter id={id + "blur"} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="3.2" />
         </filter>
@@ -128,14 +132,18 @@ function BatSvg({ on }: { on: boolean }) {
       <polygon points={P.map((q) => q.join(",")).join(" ")} fill="none" stroke="#1d1413" strokeWidth="1.4" />
       {/* threaded collar */}
       <circle cx={cx} cy={cy} r="17" fill={`url(#${id}collar)`} stroke="#1f1615" strokeWidth="1" />
-      {[14, 11.5, 9].map((r) => <circle key={r} cx={cx} cy={cy} r={r} fill="none" stroke="rgba(30,20,19,.45)" strokeWidth=".8" />)}
-      <circle cx={cx} cy={cy} r="7.5" fill="#2b201e" />
-      {/* lever shadow, then the lever and its ball */}
-      <ellipse cx={cx} cy={cy} rx="8.5" ry="7" fill={`url(#${id}collar)`} stroke="#1f1615" strokeWidth=".8" />
+      {[15, 13, 11].map((r) => <circle key={r} cx={cx} cy={cy} r={r} fill="none" stroke="rgba(30,20,19,.5)" strokeWidth=".7" />)}
+      {/* domed pivot the lever goes into: a shiny cap with a dark slot */}
+      <circle cx={cx} cy={cy + 1.5} r="10.5" fill="rgba(0,0,0,.45)" filter={`url(#${id}blur)`} />
+      <circle cx={cx} cy={cy} r="9.5" fill={`url(#${id}dome)`} stroke="#2a201e" strokeWidth=".8" />
+      <ellipse cx={cx} cy={cy + dir * 1.2} rx="4.6" ry="3.4" fill="#1b1413" />
+      {/* lever shadow, the lever from inside the slot, its rim and the ball */}
       <path d={lever} transform="translate(5 5)" fill="rgba(0,0,0,.45)" filter={`url(#${id}blur)`} />
       <path d={lever} fill={`url(#${id}lever)`} stroke="#3a3432" strokeWidth=".7" />
-      <ellipse cx={tip.x} cy={tip.y} rx="6.4" ry={on ? 5.2 : 5.6} fill={`url(#${id}tip)`} stroke="#3a3432" strokeWidth=".7" />
-      <ellipse cx={tip.x - 2} cy={tip.y - 2} rx="2" ry="1.4" fill="rgba(255,255,255,.9)" />
+      <path d={`M${cx - 4.6} ${cy + dir * 1.2} A4.6 3.4 0 0 ${on ? 0 : 1} ${cx + 4.6} ${cy + dir * 1.2}`}
+        fill="none" stroke="rgba(255,255,255,.55)" strokeWidth=".9" />
+      <ellipse cx={tip.x} cy={tip.y} rx="6.6" ry={on ? 5.4 : 5.8} fill={`url(#${id}tip)`} stroke="#3a3432" strokeWidth=".7" />
+      <ellipse cx={tip.x - 2.2} cy={tip.y - 2} rx="2.1" ry="1.4" fill="rgba(255,255,255,.95)" />
     </svg>
   );
 }
