@@ -64,31 +64,79 @@ export function Toggle({ on, onClick, top = "ON", bottom = "OFF", label, look = 
       </div>
     );
   }
-  const tipY = on ? 8 : 64, baseY = 36;
   return (
     <div className="toggle-wrap">
       <span className={`silk ${on ? "lit" : "dim"}`}>{top}</span>
       <button className={`bat ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? top}>
-        <svg viewBox="0 0 56 72" aria-hidden>
-          <defs>
-            <linearGradient id="nutG" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#d9c3bd" /><stop offset=".45" stopColor="#7d625c" /><stop offset="1" stopColor="#3b2b28" />
-            </linearGradient>
-            <radialGradient id="ringG" cx="40%" cy="35%" r="70%">
-              <stop offset="0" stopColor="#f4ece8" /><stop offset=".6" stopColor="#9c8a85" /><stop offset="1" stopColor="#4c3d3a" />
-            </radialGradient>
-            <linearGradient id="leverG" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="#8f8a88" /><stop offset=".35" stopColor="#ffffff" /><stop offset=".7" stopColor="#c8c2bf" /><stop offset="1" stopColor="#6d6765" />
-            </linearGradient>
-          </defs>
-          <polygon points="28,14 46,24 46,48 28,58 10,48 10,24" fill="url(#nutG)" stroke="#2a1d1b" strokeWidth="1.2" />
-          <circle cx="28" cy={baseY} r="10" fill="url(#ringG)" stroke="#2e2220" strokeWidth="1" />
-          <path d={`M24.5 ${baseY} L26 ${tipY} L30 ${tipY} L31.5 ${baseY} Z`} fill="url(#leverG)" stroke="#4a4442" strokeWidth=".8" />
-          <ellipse cx="28" cy={tipY} rx="4.6" ry="3.6" fill="url(#leverG)" stroke="#4a4442" strokeWidth=".8" />
-        </svg>
+        <BatSvg on={on} />
       </button>
       <span className={`silk ${on ? "dim" : "lit"}`}>{bottom}</span>
     </div>
+  );
+}
+
+let batIds = 0;
+/** A chrome bat lever on a dark bronze hex nut, lit from the top left. Drawn once per
+ * instance with its own gradient ids. */
+function BatSvg({ on }: { on: boolean }) {
+  const id = React.useMemo(() => "bat" + ++batIds, []);
+  const cx = 50, cy = 62;
+  // hex nut corners (flat sides left/right), each facet shaded by where the light falls
+  const R = 30;
+  const P = Array.from({ length: 6 }, (_, i) => {
+    const t = ((i * 60 - 90) * Math.PI) / 180;
+    return [cx + R * Math.cos(t), cy + R * Math.sin(t)];
+  });
+  const inner = Array.from({ length: 6 }, (_, i) => {
+    const t = ((i * 60 - 90) * Math.PI) / 180;
+    return [cx + 21 * Math.cos(t), cy + 21 * Math.sin(t)];
+  });
+  const facetShade = ["#a58a83", "#7a605a", "#4a3734", "#3a2a28", "#5d4744", "#8d726b"];
+  // lever: from the bushing toward the tip, foreshortened (seen a bit from above)
+  const tip = on ? { x: cx + 3, y: cy - 50 } : { x: cx + 3, y: cy + 46 };
+  const dir = on ? -1 : 1;
+  const baseW = 6, tipW = 3.4;
+  const lever = `M${cx - baseW} ${cy} L${tip.x - tipW} ${tip.y - dir * 2} L${tip.x + tipW} ${tip.y - dir * 2} L${cx + baseW} ${cy} Z`;
+  return (
+    <svg viewBox="0 0 100 124" aria-hidden>
+      <defs>
+        <radialGradient id={id + "collar"} cx="38%" cy="32%" r="75%">
+          <stop offset="0" stopColor="#f2e6e1" /><stop offset=".35" stopColor="#a8908a" />
+          <stop offset=".75" stopColor="#4b3936" /><stop offset="1" stopColor="#2a1e1c" />
+        </radialGradient>
+        <linearGradient id={id + "lever"} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#5d5654" /><stop offset=".22" stopColor="#d8d2cf" />
+          <stop offset=".38" stopColor="#ffffff" /><stop offset=".6" stopColor="#a39c99" />
+          <stop offset=".85" stopColor="#4a4442" /><stop offset="1" stopColor="#77706e" />
+        </linearGradient>
+        <radialGradient id={id + "tip"} cx="38%" cy="30%" r="70%">
+          <stop offset="0" stopColor="#ffffff" /><stop offset=".35" stopColor="#e6e0dd" />
+          <stop offset=".8" stopColor="#7a7371" /><stop offset="1" stopColor="#3d3735" />
+        </radialGradient>
+        <filter id={id + "blur"} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3.2" />
+        </filter>
+      </defs>
+      {/* shadow of the nut on the panel */}
+      <ellipse cx={cx + 6} cy={cy + 9} rx="31" ry="27" fill="rgba(0,0,0,.55)" filter={`url(#${id}blur)`} />
+      {/* nut facets */}
+      {P.map((p0, i) => {
+        const p1 = P[(i + 1) % 6], q0 = inner[i], q1 = inner[(i + 1) % 6];
+        return <polygon key={i} points={`${p0[0]},${p0[1]} ${p1[0]},${p1[1]} ${q1[0]},${q1[1]} ${q0[0]},${q0[1]}`} fill={facetShade[i]} />;
+      })}
+      <polygon points={inner.map((q) => q.join(",")).join(" ")} fill="#5a4642" />
+      <polygon points={P.map((q) => q.join(",")).join(" ")} fill="none" stroke="#1d1413" strokeWidth="1.4" />
+      {/* threaded collar */}
+      <circle cx={cx} cy={cy} r="17" fill={`url(#${id}collar)`} stroke="#1f1615" strokeWidth="1" />
+      {[14, 11.5, 9].map((r) => <circle key={r} cx={cx} cy={cy} r={r} fill="none" stroke="rgba(30,20,19,.45)" strokeWidth=".8" />)}
+      <circle cx={cx} cy={cy} r="7.5" fill="#2b201e" />
+      {/* lever shadow, then the lever and its ball */}
+      <ellipse cx={cx} cy={cy} rx="8.5" ry="7" fill={`url(#${id}collar)`} stroke="#1f1615" strokeWidth=".8" />
+      <path d={lever} transform="translate(5 5)" fill="rgba(0,0,0,.45)" filter={`url(#${id}blur)`} />
+      <path d={lever} fill={`url(#${id}lever)`} stroke="#3a3432" strokeWidth=".7" />
+      <ellipse cx={tip.x} cy={tip.y} rx="6.4" ry={on ? 5.2 : 5.6} fill={`url(#${id}tip)`} stroke="#3a3432" strokeWidth=".7" />
+      <ellipse cx={tip.x - 2} cy={tip.y - 2} rx="2" ry="1.4" fill="rgba(255,255,255,.9)" />
+    </svg>
   );
 }
 

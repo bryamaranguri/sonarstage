@@ -246,8 +246,8 @@ select option { background: #24252b; color: var(--ink); }
 .dome:disabled { opacity: .45; cursor: default; }
 
 .toggle-wrap { display: grid; justify-items: center; gap: 4px; }
-.bat { background: none; border: 0; padding: 0; width: 58px; height: 74px; }
-.bat svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 4px 4px rgba(0,0,0,.55)); }
+.bat { background: none; border: 0; padding: 0; width: 72px; height: 90px; }
+.bat svg { width: 100%; height: 100%; overflow: visible; }
 .latch { width: 76px; height: 76px; border-radius: 14px; border: 0; padding: 10px; position: relative;
   background: linear-gradient(180deg, #3d4256, #262a39); box-shadow: 0 6px 0 #11131c, 0 10px 16px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
   transition: transform .06s, box-shadow .06s; }
