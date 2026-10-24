@@ -500,8 +500,9 @@ class AudioIO(object):
         with self.lock:
             self.playing, self.pos = samples, 0
 
-    def blocks(self):
-        while True:
+    def blocks(self, stop=None):
+        """Mic blocks until `stop` (a threading.Event) is set."""
+        while stop is None or not stop.is_set():
             try:
                 yield self.q.get(timeout=self.STALL_S)
             except queue.Empty:
@@ -513,6 +514,12 @@ class AudioIO(object):
                     self.out("  reconectado.")
                 except Exception as e:
                     self.out("  no se pudo (%s); vuelvo a intentar." % e)
+
+
+def input_devices():
+    import sounddevice as sd
+    return [{"index": i, "name": d["name"], "inputs": d["max_input_channels"], "outputs": d["max_output_channels"],
+             "rate": int(d["default_samplerate"])} for i, d in enumerate(sd.query_devices()) if d["max_input_channels"] > 0]
 
 
 def list_devices():
