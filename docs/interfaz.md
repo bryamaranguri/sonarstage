@@ -18,6 +18,12 @@ John Mayer X). Se toma la sensación, no la marca: dibujos propios en CSS/SVG.
   **interruptores de palanca** ON/OFF, **LED verde**, **medidor de aguja** (cuánto falta
   para el final de la sección; la zona naranja es el último compás, donde se dispara un
   salto), **pantallas** negras con texto ámbar, **faders** con escala (estilo del Reverb).
+- Elementos que eligió Bryam (24/10): **foco LED**, **palanca ON/OFF**, **domo crema**,
+  **equipo dorado** completo (módulo VOZ), **medidor VU** con números (compases de la
+  sección), **selector de 3–4 posiciones** (rueda blanca dentada: modo de salto
+  SECCIÓN / COMPÁS / YA), **palanca naranja de 3 posiciones** (activación: AMBAS /
+  SECUENCIA / BANDA), **pantalla con barras** (avance de sección y canción), faders y
+  un **TAP** cuadrado listo para el tap tempo.
 - Fuentes locales (sin internet en vivo): Manrope, IBM Plex Mono.
 - Botones y celdas de al menos 44 px (uso con pantalla táctil o con prisa).
 

@@ -64,7 +64,7 @@ real el firewall descartaba las respuestas UDP hacia `python3`; por TCP la respu
 vuelve por la conexión que abrió el cliente. Comandos: `status`, `refresh`, `play`
 (`continue`), `stop`, `goto` (`section`, `any_song`), `next_section`, `repeat` (la sección una vez más),
 `hold` (en bucle hasta `release`), `release`, `cancel`, `song` (`number`), `next_song`, `mute` (`track`, `on`),
-`autostop` (`on`), `order` (`songs`), `next_is` (`number`), `skip` (`number`), `setlist` (canciones con sus secciones y nombres de pistas, para el
+`autostop` (`on`), `jump_mode` (`mode`: `section` al final de la sección, `bar` en el próximo compás, `now` de inmediato), `order` (`songs`), `next_is` (`number`), `skip` (`number`), `setlist` (canciones con sus secciones y nombres de pistas, para el
 control por voz) y `message` (`text`: lo muestra en la barra de estado de Live).
 
 `state`: `playing`, `beat`, `tempo`, `song`, `song_title`, `section`, `section_bar`,

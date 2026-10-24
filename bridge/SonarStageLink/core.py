@@ -25,6 +25,7 @@ import re
 
 SONG_LOCATOR = re.compile(r"^\s*(\d+)\.\s+(.+)$")
 TRAILING_NUMBER = re.compile(r"\s+\d+$")
+JUMP_MODES = ("section", "bar", "now")   # at the end of the section, at the next bar, at once
 GUIDE_NAMES = {"guía", "guia", "guide", "cues", "cue"}
 
 
@@ -54,6 +55,7 @@ class LinkCore(object):
         self.parked = None                            # where we left the stopped transport
         self.order = None                             # play order (song numbers); None = as arranged
         self.verify_start = None                      # where the last play had to start
+        self.jump_mode = "section"                    # when a jump lands: section | bar | now
         self.landing = None                           # (target, beat it was fired at)
         self.guide_quieted = []                       # guide tracks muted by the smart guide
         self.autostop = True
@@ -180,6 +182,10 @@ class LinkCore(object):
                 self._next_song()
             elif cmd == "mute":
                 self._mute(msg["track"], bool(msg.get("on", True)))
+            elif cmd == "jump_mode":
+                if msg.get("mode") not in JUMP_MODES:
+                    raise ValueError("modo de salto desconocido: %r" % msg.get("mode"))
+                self.jump_mode = msg["mode"]
             elif cmd == "autostop":
                 self.autostop = bool(msg.get("on", True))
             elif cmd == "order":
@@ -381,11 +387,14 @@ class LinkCore(object):
         if current is None:
             return
         last_bar = current.end - self.bar_length()
-        if beat >= last_bar - 1e-6 or current.end == float("inf"):
-            if self.bar_quantization is not None:
-                self.song.clip_trigger_quantization = self.bar_quantization
+        if self.jump_mode != "section" or beat >= last_bar - 1e-6 or current.end == float("inf"):
             target, self.pending = self.pending, None
             self.landing = (target, beat)
+            if self.jump_mode == "now":
+                self.song.current_song_time = target.start      # at once, no waiting for the bar
+                return
+            if self.bar_quantization is not None:
+                self.song.clip_trigger_quantization = self.bar_quantization
             target.cue.jump()                 # Live performs it on the next downbeat
 
     # --- state -------------------------------------------------------------------------
@@ -411,6 +420,7 @@ class LinkCore(object):
             "autostop": self.autostop,
             "next_song": self._next_title(current),
             "guide_quiet": bool(self.guide_quieted),
+            "jump_mode": self.jump_mode,
         }
 
     def _next_title(self, current):

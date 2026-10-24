@@ -399,3 +399,18 @@ def test_state_says_where_a_jump_fired_in_the_last_bar_lands():
     song.continue_playing()
     st = core.handle({"cmd": "goto", "section": "Sección 1"})["state"]
     assert st["pending"] is None and st["landing"] == "Sección 1"    # fired at once, lands at 40
+
+
+def test_jump_modes(setup):
+    core, song = setup
+    song.current_song_time = 25.0                     # bar 1 of "Sección 2" (24–40)
+    song.continue_playing()
+    assert core.handle({"cmd": "jump_mode", "mode": "bar"})["state"]["jump_mode"] == "bar"
+    core.handle({"cmd": "goto", "section": "Sección 1"})
+    run(core, song, 3.4)                              # the next downbeat (28), not the section end (40)
+    assert song.jumps == [(28, 8)]
+    core.handle({"cmd": "jump_mode", "mode": "now"})
+    song.current_song_time = 13.5
+    core.handle({"cmd": "goto", "section": "Sección 3"})
+    assert song.current_song_time == 40               # at once
+    assert not core.handle({"cmd": "jump_mode", "mode": "luego"})["ok"]

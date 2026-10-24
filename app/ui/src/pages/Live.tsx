@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, Live, VoiceLine } from "../api";
-import { FlatKnob, HwButton, Lcd, Led, Rack, RackUnit, SectionMeter, Toggle } from "../components/hardware";
-import { loadVoiceSettings } from "./Settings";
+import { FlatKnob, Gauge, HwButton, Lcd, Led, Lever, ModeSelector, Rack, RackUnit, SectionMeter, Toggle } from "../components/hardware";
+import { loadVoiceSettings, saveVoiceSettings, WakeMode, WAKE_WORDS_BY_MODE } from "./Settings";
 
 const SONG_LOCATOR = /^\s*\d+\.\s/;
 const GROUPS = new Set(["EN VIVO", "SECUENCIA", "CUES", "CONTROL", "Secuencia"]);
@@ -94,7 +94,7 @@ export default function LivePage({ live }: { live?: Live }) {
           <div className="seq-grid">
             <div className="seq-meter">
               <SectionMeter progress={progress} lastBarFrom={bars ? (bars - 1) / bars : 1} label={sectionName.toUpperCase()}
-                sub={bars ? `COMPÁS ${bar} DE ${bars}` : "DETENIDO"} />
+                sub={bars ? `COMPÁS ${bar} DE ${bars}` : "DETENIDO"} bars={bars} />
               <Lcd className="lcd-seq">
                 <div className="lcd-row"><span className="lcd-key">CANCIÓN</span><span className="lcd-key">TEMPO</span></div>
                 <div className="lcd-row big">
@@ -105,6 +105,9 @@ export default function LivePage({ live }: { live?: Live }) {
                   <span className="lcd-key">{target ? "VA A" : "DESPUÉS"}</span>
                   <span className={target ? "amber blink-soft" : ""}>{target ?? (st?.next_song ?? "—")}</span>
                 </div>
+                <Gauge label="SECCIÓN" value={bars ? (bar - 1 + frac) / bars : 0} text={bars ? `${bar}/${bars}` : "—"} />
+                <Gauge label="CANCIÓN" value={sections.length ? (currentIndex + 1) / sections.length : 0}
+                  text={sections.length ? `${Math.max(0, currentIndex + 1)}/${sections.length}` : "—"} />
               </Lcd>
             </div>
             <div className="seq-buttons">
@@ -114,6 +117,9 @@ export default function LivePage({ live }: { live?: Live }) {
                 led={!!target && target !== st?.section} ledColor="amber" ledBlink />
               <HwButton label="CANCELAR" tone="dark" onClick={() => send({ cmd: "cancel" })} led={!!st?.pending} ledColor="red" />
               <div className="bracket" aria-hidden />
+              <ModeSelector title="SALTO" value={(st?.jump_mode ?? "section") as "section" | "bar" | "now"}
+                options={[{ id: "section", label: "SECCIÓN" }, { id: "bar", label: "COMPÁS" }, { id: "now", label: "YA" }]}
+                onChange={(mode) => send({ cmd: "jump_mode", mode })} />
               <Toggle on={!!st?.loop} top="BUCLE" bottom="SEGUIR" label="Bucle"
                 onClick={() => send({ cmd: st?.loop ? "release" : "hold" })} />
             </div>
@@ -193,19 +199,28 @@ function VoiceUnit() {
     return () => { alive = false; window.clearTimeout(t); };
   }, []);
 
+  const [settings, setSettings] = useState(loadVoiceSettings);
+  const start = (s = settings) => api.voiceStart({ ...s, wake: WAKE_WORDS_BY_MODE[s.wake] });
   const toggle = async () => {
     setErr(undefined);
     try {
       if (running) await api.voiceStop();
-      else await api.voiceStart(loadVoiceSettings());
+      else await start();
     } catch (e: any) {
       setErr(e.message);
     }
   };
+  const setWake = async (wake: WakeMode) => {
+    const next = { ...settings, wake };
+    setSettings(next);
+    saveVoiceSettings(next);
+    if (running) {                                   // the listener takes the words when it starts
+      try { await api.voiceStop(); await start(next); } catch (e: any) { setErr(e.message); }
+    }
+  };
   const shown = lines.slice(-4);
-  const settings = loadVoiceSettings();
   return (
-    <RackUnit title="VOZ" subtitle="Control por voz" side={
+    <RackUnit title="VOZ" subtitle="Control por voz" tone="gold" side={
       <div className="side-col">
         <Led on={running} />
         <Toggle on={running} top="ON" bottom="OFF" label="Voz" onClick={toggle} />
@@ -218,17 +233,15 @@ function VoiceUnit() {
             <span className="lcd-key">{settings.device ? `${String(settings.device).toUpperCase()} · ENTRADA ${settings.channel}` : "ELIGE LA ENTRADA EN AJUSTES"}</span>
           </div>
           {err && <div className="lcd-line red">{err}</div>}
-          {shown.length === 0 && !err && <div className="lcd-line dim">«Banda, vamos al coro» · «Secuencia, repetimos»</div>}
+          {shown.length === 0 && !err && <div className="lcd-line dim">{settings.wake === "secuencia" ? "«Secuencia, vamos al coro»" : settings.wake === "banda" ? "«Banda, vamos al coro»" : "«Banda, vamos al coro» · «Secuencia, repetimos»"}</div>}
           {shown.map((l) => (
             <div key={l.n} className={`lcd-line ${l.text.includes("✓") ? "ok" : l.text.includes("✗") || l.text.includes("⚠") ? "red" : ""}`}>
               {l.text.trim()}
             </div>
           ))}
         </Lcd>
-        <div className="wake">
-          <div className="silk">ACTIVACIÓN</div>
-          <div className="wake-words"><span>BANDA</span><span>SECUENCIA</span></div>
-        </div>
+        <Lever label="ACTIVACIÓN" value={settings.wake} onChange={setWake}
+          options={[{ id: "ambas", label: "AMBAS" }, { id: "secuencia", label: "SECUENCIA" }, { id: "banda", label: "BANDA" }]} />
       </div>
     </RackUnit>
   );

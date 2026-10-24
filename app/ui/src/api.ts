@@ -15,6 +15,7 @@ export type LiveState = {
   autostop: boolean;
   next_song?: string | null;
   guide_quiet?: boolean;
+  jump_mode?: "section" | "bar" | "now";
 };
 
 export type Live = {

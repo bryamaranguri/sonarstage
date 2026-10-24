@@ -414,3 +414,67 @@ select option { background: #24252b; color: var(--ink); }
   .dialog-col.faders { border: 0; padding: 0; }
   .statusbar { flex-wrap: wrap; gap: 12px; font-size: 13px; }
 }
+
+/* ---- gold unit (a whole piece of gear in brushed gold) ---- */
+.rack-unit.gold {
+  color: #1d1a12;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,.25), transparent 55%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse at 70% 80%, rgba(90,60,20,.25), transparent 60%),
+    linear-gradient(180deg, #d0a466, #b58a4f 55%, #9c7440);
+  box-shadow:
+    0 0 0 3px #7a5a2c, 0 0 0 4px rgba(255,230,180,.45),
+    inset 0 2px 0 rgba(255,255,255,.35), inset 0 -3px 8px rgba(60,40,10,.35),
+    0 24px 40px rgba(0,0,0,.55);
+}
+.rack-unit.gold .unit-title, .rack-unit.gold .unit-sub { color: #1d1a12; text-shadow: 0 1px 0 rgba(255,235,200,.35); }
+.rack-unit.gold .unit-main { border-top-color: rgba(29,26,18,.45); }
+.rack-unit.gold .unit-main::before, .rack-unit.gold .unit-main::after { background: rgba(29,26,18,.45); }
+.rack-unit.gold .silk { color: #1d1a12; }
+.rack-unit.gold .unit-side { border-left-color: rgba(29,26,18,.25); }
+.rack-unit.gold .screw circle:first-child { fill: #3a2f1e; }
+.rack-unit.gold .led:not(.on) { box-shadow: inset 0 2px 4px rgba(0,0,0,.6), 0 0 0 3px #6f5428; }
+
+/* ---- VU numbers ---- */
+.meter-num { text-anchor: middle; font: 700 13px var(--ui); fill: #1b1c1f; }
+.meter-num.hot { fill: var(--orange-2); }
+
+/* ---- mode selector (serrated white knob with dots) ---- */
+.mode-selector svg { width: 236px; height: 188px; overflow: visible; }
+.ms-arc { fill: none; stroke: var(--cream-ink); stroke-width: 2.4; }
+.ms-dot { fill: var(--cream-ink); }
+.ms-opt { cursor: pointer; }
+.ms-opt.on .ms-dot { fill: var(--amber); filter: drop-shadow(0 0 4px var(--amber)); }
+.ms-label { text-anchor: middle; font: 800 13px var(--ui); letter-spacing: .14em; fill: var(--cream-ink); }
+.ms-opt.on .ms-label { fill: var(--amber); }
+.ms-knob { cursor: pointer; }
+.ms-ring { fill: rgba(255,255,255,.1); stroke: rgba(255,255,255,.18); }
+.ms-tooth { fill: #e9e7e2; }
+.ms-face { stroke: #c4c1ba; stroke-width: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
+.ms-pointer { stroke: #2a2b2f; stroke-width: 5; stroke-linecap: round; }
+.ms-title { text-anchor: middle; font: 700 11px var(--ui); letter-spacing: .14em; fill: #4a4b50; }
+
+/* ---- orange 3-way lever ---- */
+.lever { display: grid; justify-items: center; gap: 4px; }
+.lever-labels { display: flex; gap: 10px; }
+.lever-labels button { background: none; border: 0; padding: 2px 4px; font-size: 12px; font-weight: 700; letter-spacing: .12em; color: inherit; opacity: .7; }
+.lever-labels button.on { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
+.lever-svg { width: 150px; height: 84px; cursor: pointer; }
+.lever-guides { fill: none; stroke: currentColor; stroke-width: 2.4; opacity: .8; }
+.lever-arm { fill: #e98a3a; }
+.lever-ball { fill: url(#none); fill: #f09443; filter: drop-shadow(0 3px 4px rgba(0,0,0,.4)); }
+.rack-unit.gold .lever { color: #1d1a12; }
+
+/* ---- LCD bar gauges ---- */
+.gauge { display: grid; grid-template-columns: 82px 1fr 54px; align-items: center; gap: 12px; margin-top: 10px; font-size: 12px; letter-spacing: .16em; }
+.gauge-label { color: #8f8a80; }
+.gauge-bar { height: 12px; border: 2px solid var(--lcd-text); border-radius: 2px; position: relative; overflow: hidden; }
+.gauge-bar span { position: absolute; inset: 0 auto 0 0; background: var(--lcd-text); transition: width .12s linear; }
+.gauge-text { text-align: right; color: var(--lcd-text); letter-spacing: .04em; }
+
+/* ---- square TAP ---- */
+.tap { width: 72px; height: 72px; border-radius: 12px; border: 0; padding: 8px;
+  background: linear-gradient(180deg, #f4c7a8, #e3a986); box-shadow: 0 6px 10px rgba(0,0,0,.45), inset 0 -3px 0 rgba(0,0,0,.12); }
+.tap span { display: block; width: 100%; height: 100%; border-radius: 9px; background: linear-gradient(180deg, #f0b996, #f7d2b8); box-shadow: inset 0 2px 3px rgba(0,0,0,.12); }
+.tap:active { transform: translateY(2px); }

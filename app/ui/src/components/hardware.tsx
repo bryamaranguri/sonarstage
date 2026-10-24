@@ -18,11 +18,11 @@ export function Screw({ style }: { style?: React.CSSProperties }) {
 }
 
 /** A slate rack unit with a copper rim: big title, a small subtitle, controls below. */
-export function RackUnit({ title, subtitle, children, side, compact }: {
-  title: string; subtitle?: string; children: React.ReactNode; side?: React.ReactNode; tone?: string; compact?: boolean;
+export function RackUnit({ title, subtitle, children, side, compact, tone }: {
+  title: string; subtitle?: string; children: React.ReactNode; side?: React.ReactNode; tone?: "slate" | "gold"; compact?: boolean;
 }) {
   return (
-    <section className={`rack-unit ${compact ? "compact" : ""}`}>
+    <section className={`rack-unit ${compact ? "compact" : ""} ${tone === "gold" ? "gold" : ""}`}>
       <Screw style={{ left: 16, top: 16 }} />
       <Screw style={{ left: 16, bottom: 16 }} />
       <Screw style={{ right: 16, top: 16 }} />
@@ -162,8 +162,8 @@ export function FlatKnob({ label, value, text, dim, toggle, onToggle }: {
 
 /** Needle meter for "how far into the section": the last bar is the orange zone, where a
  * pending jump fires. progress 0..1, lastBarFrom = where the last bar starts (0..1). */
-export function SectionMeter({ progress, lastBarFrom, label, sub }: {
-  progress: number; lastBarFrom: number; label: string; sub: string;
+export function SectionMeter({ progress, lastBarFrom, label, sub, bars = 0 }: {
+  progress: number; lastBarFrom: number; label: string; sub: string; bars?: number;
 }) {
   const a0 = -38, a1 = 38, cx = 150, cy = 236, r = 196;     // pivot below the window, like a VU
   const pt = (frac: number, rr: number) => {
@@ -175,17 +175,23 @@ export function SectionMeter({ progress, lastBarFrom, label, sub }: {
     const [x0, y0] = pt(f0, rr), [x1, y1] = pt(f1, rr);
     return `M${x0} ${y0} A${rr} ${rr} 0 0 1 ${x1} ${y1}`;
   };
-  const ticks = Array.from({ length: 11 }, (_, i) => i / 10);
+  const ticks = bars > 0 && bars <= 16 ? Array.from({ length: bars + 1 }, (_, i) => i / bars) : Array.from({ length: 11 }, (_, i) => i / 10);
   const p = Math.max(0, Math.min(1, progress));
   const hot = Math.min(Math.max(lastBarFrom, 0), 1);
+  const numbers = bars > 0 && bars <= 16 ? Array.from({ length: bars }, (_, i) => ({ f: (i + 0.5) / bars, n: i + 1 })) : [];
   const [nx, ny] = pt(p, r + 10);
   return (
     <svg viewBox="0 0 300 180" className="meter" role="img" aria-label={`${label}, ${sub}`}>
       <path d={arc(0, hot, r)} className="meter-scale" />
       <path d={arc(hot, 1, r - 4)} className="meter-hot" />
       {ticks.map((f) => {
-        const [x0, y0] = pt(f, r - 2), [x1, y1] = pt(f, r + (f % 0.5 === 0 ? 16 : 9));
-        return <line key={f} x1={x0} y1={y0} x2={x1} y2={y1} className={f >= hot ? "meter-tick hot" : "meter-tick"} />;
+        const major = numbers.length ? true : f % 0.5 === 0;
+        const [x0, y0] = pt(f, r - 2), [x1, y1] = pt(f, r + (major ? 14 : 9));
+        return <line key={f} x1={x0} y1={y0} x2={x1} y2={y1} className={f > hot + 1e-6 ? "meter-tick hot" : "meter-tick"} />;
+      })}
+      {numbers.map(({ f, n }) => {
+        const [x, y] = pt(f, r + 24);
+        return <text key={n} x={x} y={y + 5} className={f > hot ? "meter-num hot" : "meter-num"}>{n}</text>;
       })}
       <text x={cx} y={112} className="meter-label">{label}</text>
       <text x={cx} y={134} className="meter-sub">{sub}</text>
@@ -213,3 +219,99 @@ export const Icons = {
     <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="7" /><path d="M24 6v6M24 36v6M6 24h6M36 24h6M11.3 11.3l4.2 4.2M32.5 32.5l4.2 4.2M11.3 36.7l4.2-4.2M32.5 15.5l4.2-4.2" /></svg>
   ),
 };
+
+/** Serrated white selector knob with 3–4 positions on an arc (dots), labels at the ends. */
+export function ModeSelector<T extends string>({ options, value, onChange, title }: {
+  options: { id: T; label: string }[]; value: T; onChange: (v: T) => void; title: string;
+}) {
+  const n = options.length;
+  const span = n <= 3 ? 100 : 130;
+  const angleOf = (i: number) => -span / 2 + (span * i) / Math.max(1, n - 1);
+  const cx = 110, cy = 112, r = 74;
+  const pt = (deg: number, rr: number) => {
+    const t = ((deg - 90) * Math.PI) / 180;
+    return [cx + rr * Math.cos(t), cy + rr * Math.sin(t)];
+  };
+  const at = Math.max(0, options.findIndex((o) => o.id === value));
+  const [a0x, a0y] = pt(-span / 2 - 14, r), [a1x, a1y] = pt(span / 2 + 14, r);
+  const teeth = Array.from({ length: 36 }, (_, i) => i * 10);
+  const [px0, py0] = pt(angleOf(at), 30), [px1, py1] = pt(angleOf(at), 46);
+  return (
+    <div className="mode-selector">
+      <svg viewBox="-20 -6 260 206" role="radiogroup" aria-label={title}>
+        <defs>
+          <radialGradient id="msFace" cx="45%" cy="35%" r="70%">
+            <stop offset="0" stopColor="#ffffff" /><stop offset="1" stopColor="#d8d6d1" />
+          </radialGradient>
+        </defs>
+        <path d={`M${a0x} ${a0y} A${r} ${r} 0 0 1 ${a1x} ${a1y}`} className="ms-arc" />
+        {options.map((o, i) => {
+          const [dx, dy] = pt(angleOf(i), r);
+          const [lx, ly] = pt(angleOf(i), r + 30);
+          return (
+            <g key={o.id} className={`ms-opt ${i === at ? "on" : ""}`} onClick={() => onChange(o.id)} role="radio" aria-checked={i === at}>
+              <circle cx={dx} cy={dy} r={5} className="ms-dot" />
+              <text x={lx} y={ly + 4} className="ms-label">{o.label}</text>
+            </g>
+          );
+        })}
+        <g onClick={() => onChange(options[(at + 1) % n].id)} className="ms-knob">
+          <circle cx={cx} cy={cy} r={58} className="ms-ring" />
+          {teeth.map((d) => {
+            const [x, y] = pt(d, 49);
+            return <circle key={d} cx={x} cy={y} r={3.2} className="ms-tooth" />;
+          })}
+          <circle cx={cx} cy={cy} r={48} fill="url(#msFace)" className="ms-face" />
+          <line x1={px0} y1={py0} x2={px1} y2={py1} className="ms-pointer" />
+          <text x={cx} y={cy + 4} className="ms-title">{title}</text>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+/** Orange 3-way lever (like a sync switch): left / middle / right. */
+export function Lever<T extends string>({ options, value, onChange, label }: {
+  options: { id: T; label: string }[]; value: T; onChange: (v: T) => void; label: string;
+}) {
+  const at = Math.max(0, options.findIndex((o) => o.id === value));
+  const angle = [-38, 0, 38][at] ?? 0;
+  return (
+    <div className="lever">
+      <div className="lever-labels">
+        {options.map((o, i) => (
+          <button key={o.id} className={i === at ? "on" : ""} onClick={() => onChange(o.id)}>{o.label}</button>
+        ))}
+      </div>
+      <svg viewBox="0 0 120 70" className="lever-svg" onClick={() => onChange(options[(at + 1) % options.length].id)} role="button" aria-label={label}>
+        <path d="M20 8v8l22 14M60 8v14M100 8v8l-22 14" className="lever-guides" />
+        <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: "60px 52px", transition: "transform .15s" }}>
+          <path d="M54 52 L60 26 L66 52 Z" className="lever-arm" />
+        </g>
+        <circle cx="60" cy="52" r="14" className="lever-ball" />
+      </svg>
+      <span className="silk">{label}</span>
+    </div>
+  );
+}
+
+/** A bar gauge for the LCD: label, outlined bar, value. */
+export function Gauge({ label, value, text }: { label: string; value: number; text: string }) {
+  return (
+    <div className="gauge">
+      <span className="gauge-label">{label}</span>
+      <span className="gauge-bar"><span style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} /></span>
+      <span className="gauge-text">{text}</span>
+    </div>
+  );
+}
+
+/** Square soft button (TAP). */
+export function TapButton({ label, onClick }: { label: string; onClick?: () => void }) {
+  return (
+    <div className="hw-button-wrap">
+      <button className="tap" onClick={onClick} aria-label={label}><span /></button>
+      <span className="silk">{label}</span>
+    </div>
+  );
+}

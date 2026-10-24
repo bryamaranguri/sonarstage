@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { api, Device, Status } from "../api";
 import { Fader } from "../components/hardware";
 
-export type VoiceSettings = { device: string | number | null; channel: number; confirmChannel: number; dryRun: boolean; confirmGain: number };
+export type WakeMode = "ambas" | "secuencia" | "banda";
+export const WAKE_WORDS_BY_MODE: Record<WakeMode, string[]> = { ambas: ["secuencia", "banda"], secuencia: ["secuencia"], banda: ["banda"] };
+export type VoiceSettings = { device: string | number | null; channel: number; confirmChannel: number; dryRun: boolean; confirmGain: number; wake: WakeMode };
 const KEY = "sonarstage.voice";
-const DEFAULTS: VoiceSettings = { device: null, channel: 1, confirmChannel: 2, dryRun: false, confirmGain: 0 };
+const DEFAULTS: VoiceSettings = { device: null, channel: 1, confirmChannel: 2, dryRun: false, confirmGain: 0, wake: "ambas" };
 
 export function loadVoiceSettings(): VoiceSettings {
   try {
@@ -14,7 +16,7 @@ export function loadVoiceSettings(): VoiceSettings {
   }
 }
 
-function saveVoiceSettings(v: VoiceSettings) {
+export function saveVoiceSettings(v: VoiceSettings) {
   try {
     localStorage.setItem(KEY, JSON.stringify(v));
   } catch { /* private window: settings last this session only */ }
