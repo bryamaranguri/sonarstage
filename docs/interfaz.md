@@ -4,12 +4,21 @@ Decisiones de diseño de la app (Tauri + React). Prototipo interactivo de la mat
 artefacto privado "SonarStage · Matriz de partes" (claude.ai), con datos reales de
 *Alegras mis días*.
 
-## Estilo
+## Estilo (24/10/2026: equipo de estudio, a pedido de Bryam)
 
-- Familia visual de SonarMaster: Lora (títulos), IBM Plex Sans Condensed (texto),
-  IBM Plex Mono (números), acento ámbar.
-- Fondo oscuro de escenario.
-- Colores de grupo de la plantilla de Ableton: **morado = EN VIVO**, **ámbar = SECUENCIA**.
+Referencia: la estética de los plugins de Neural DSP (capturas de Archetype Mateus Asato y
+John Mayer X). Se toma la sensación, no la marca: dibujos propios en CSS/SVG.
+
+- **Sala oscura** con madera cálida desenfocada y luz violeta (sirve en escenario).
+- Navegación con **íconos de línea** arriba; **franja de perillas planas** oscuras
+  (lecturas), selector tipo preset y textos-botón en mayúsculas; **barra negra** abajo.
+- **Módulos de rack azul pizarra con borde cobrizo**, tornillos, título grande crema con
+  tracking y subtítulo, filete con marcas, **patas de cobre**.
+- Controles: **domos crema** para pulsar (estilo de las perillas del Gravity Tank),
+  **interruptores de palanca** ON/OFF, **LED verde**, **medidor de aguja** (cuánto falta
+  para el final de la sección; la zona naranja es el último compás, donde se dispara un
+  salto), **pantallas** negras con texto ámbar, **faders** con escala (estilo del Reverb).
+- Fuentes locales (sin internet en vivo): Manrope, IBM Plex Mono.
 - Botones y celdas de al menos 44 px (uso con pantalla táctil o con prisa).
 
 ## Pantalla de matriz de partes (aprobada 21/10/2026)

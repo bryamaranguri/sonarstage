@@ -196,7 +196,8 @@ class LinkCore(object):
                 self.order = [x for x in self.play_order() if x != n]
             elif cmd == "setlist":
                 return {"ok": True, "setlist": self.setlist(), "order": self.play_order(),
-                        "tracks": [t.name for t in self.song.tracks], "state": self.state()}
+                        "tracks": [t.name for t in self.song.tracks],
+                        "mutes": {t.name: bool(t.mute) for t in self.song.tracks}, "state": self.state()}
             elif cmd == "message":
                 self.notify(str(msg.get("text", ""))[:120])
             else:

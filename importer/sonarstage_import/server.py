@@ -181,7 +181,7 @@ class Voice(object):
     def running(self):
         return self.thread is not None and self.thread.is_alive()
 
-    def start(self, device, channel=1, confirm_channel=2, dry_run=False, wake=None):
+    def start(self, device, channel=1, confirm_channel=2, dry_run=False, wake=None, confirm_gain=0.0):
         if self.running():
             raise ApiError(409, "La voz ya está escuchando")
         from .voice import AudioIO, Confirmer, Context, VoskTranscriber, WAKE_WORDS, listen
@@ -190,7 +190,7 @@ class Voice(object):
         audio = AudioIO(device, int(channel), int(confirm_channel) if has_voices else None, out=self.out)
         confirm = None
         if audio.open() and has_voices:
-            confirm = Confirmer(self.cfg.voices, audio.sr, audio.play)
+            confirm = Confirmer(self.cfg.voices, audio.sr, audio.play, float(confirm_gain or 0))
         self.stop_event = threading.Event()
         self.settings = {"device": device, "channel": channel, "confirmChannel": confirm_channel if confirm else None,
                          "rate": audio.sr, "dryRun": dry_run}
@@ -256,7 +256,8 @@ class Engine(object):
         if key == ("GET", "live"):
             r = self.send({"cmd": "setlist"})
             return {"ok": bool(r.get("ok")), "error": r.get("error"), "state": r.get("state"),
-                    "setlist": r.get("setlist"), "order": r.get("order"), "tracks": r.get("tracks")}
+                    "setlist": r.get("setlist"), "order": r.get("order"), "tracks": r.get("tracks"),
+                    "mutes": r.get("mutes")}
         if key == ("POST", "live"):
             if not isinstance(body, dict) or "cmd" not in body:
                 raise ApiError(400, "Falta el comando")
@@ -270,7 +271,7 @@ class Engine(object):
             action = parts[1] if len(parts) > 1 else ""
             if action == "start":
                 return self.voice.start(body.get("device"), body.get("channel", 1), body.get("confirmChannel", 2),
-                                        bool(body.get("dryRun")), body.get("wake"))
+                                        bool(body.get("dryRun")), body.get("wake"), body.get("confirmGain", 0))
             if action == "stop":
                 return self.voice.stop()
         raise ApiError(404, "No existe %s %s" % (method, path))
@@ -350,8 +351,8 @@ def make_handler(engine, ui_dir=UI_DIR):
     return Handler
 
 
-def serve(cfg, host=HOST, port=PORT, ui_dir=UI_DIR):
-    engine = Engine(cfg)
+def serve(cfg, host=HOST, port=PORT, ui_dir=UI_DIR, send=link_client.send):
+    engine = Engine(cfg, send=send)
     httpd = ThreadingHTTPServer((host, port), make_handler(engine, ui_dir))
     return engine, httpd
 
@@ -361,9 +362,15 @@ def main(argv=None):
     ap.add_argument("--material", required=True, help="Carpeta con biblioteca, shows, modelos y voces")
     ap.add_argument("--template", help="Plantilla .als (por defecto, la primera dentro de material)")
     ap.add_argument("--port", type=int, default=PORT)
+    ap.add_argument("--demo", action="store_true", help="Sin Ableton: simula el show con la biblioteca")
     args = ap.parse_args(argv)
     cfg = Config(args.material, args.template)
-    _, httpd = serve(cfg, port=args.port)
+    send = link_client.send
+    if args.demo:
+        from .demo import DemoLink
+        send = DemoLink(cfg.library)
+        print("Modo demo: Ableton simulado con las canciones de la biblioteca.")
+    _, httpd = serve(cfg, port=args.port, send=send)
     print("SonarStage en http://%s:%d  (biblioteca: %s)" % (HOST, args.port, cfg.library), flush=True)
     try:
         httpd.serve_forever()
