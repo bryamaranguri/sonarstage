@@ -27,12 +27,12 @@ export default function SamplesPage() {
           ))}
         </div>
       </RackUnit>
-      <RackUnit title="ON / OFF" subtitle="Dos opciones para comparar" compact>
+      <RackUnit title="DOS OPCIONES" subtitle="Deslizante con nombre · botón ON/OFF con luz" compact>
         <div className="tracks">
-          <div className="track"><Led on={a} /><Toggle on={a} onClick={() => setA(!a)} /><span className="track-name">PALANCA</span></div>
-          <div className="track"><Toggle look="latch" on={a} top="ON" bottom="OFF" onClick={() => setA(!a)} /><span className="track-name">TECLA CON LUZ</span></div>
-          <div className="track"><Led on={b} /><Toggle on={b} onClick={() => setB(!b)} /><span className="track-name">PALANCA</span></div>
-          <div className="track"><Toggle look="latch" on={b} top="ON" bottom="OFF" onClick={() => setB(!b)} /><span className="track-name">TECLA CON LUZ</span></div>
+          <Toggle on={a} top="PLAY" bottom="STOP" onClick={() => setA(!a)} />
+          <Toggle on={b} top="BUCLE" bottom="SEGUIR" onClick={() => setB(!b)} />
+          <Toggle look="push" on={a} label="POWER" onClick={() => setA(!a)} />
+          <Toggle look="push" on={b} label="BATERÍA" onClick={() => setB(!b)} />
         </div>
       </RackUnit>
       <RackUnit title="CONTROLES" compact>

@@ -139,7 +139,6 @@ export default function ShowPage() {
             <div className="tracks">
               {theBand ? theBand.musicians.map((m) => (
                 <div className="track" key={m.id}>
-                  <Led on={isPresent(m.id)} />
                   <Toggle on={isPresent(m.id)} top="TOCA" bottom="SECUENCIA" label={m.name} onClick={() => togglePresent(m.id)} />
                   <span className="track-name">{m.name.toUpperCase()}</span>
                 </div>

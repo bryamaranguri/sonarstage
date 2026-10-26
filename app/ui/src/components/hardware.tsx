@@ -49,26 +49,39 @@ export function Rack({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Bat toggle switch (ON up / OFF down): chrome lever on a hex nut. `look="latch"` draws
- * the alternative: a square latching key with its own light. */
-export function Toggle({ on, onClick, top = "ON", bottom = "OFF", label, look = "bat" }: {
-  on: boolean; onClick?: () => void; top?: string; bottom?: string; label?: string; look?: "bat" | "latch";
+/** Two choices. `look="slide"` (default): a dark vertical slot with a spun-aluminium knob
+ * that sits up (`on`, top label) or down (bottom label). `look="push"`: a round push button
+ * in a chrome bezel with a light bar above it, for plain ON/OFF (`label` under it). */
+export function Toggle({ on, onClick, top = "ON", bottom = "OFF", label, look = "slide" }: {
+  on: boolean; onClick?: () => void; top?: string; bottom?: string; label?: string; look?: "slide" | "push" | "bat" | "latch";
 }) {
-  if (look === "latch") {
+  if (look === "push" || look === "latch") {
     return (
-      <div className="toggle-wrap latch-wrap">
-        <button className={`latch ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? top}>
-          <span className="latch-light" />
+      <div className="push-wrap">
+        <span className={`light-bar ${on ? "on" : ""}`} />
+        <button className={`push ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? top}>
+          <span className="push-cap" />
         </button>
-        <span className="silk">{on ? top : bottom}</span>
+        {label && <span className="silk">{label}</span>}
+      </div>
+    );
+  }
+  if (look === "bat") {
+    return (
+      <div className="toggle-wrap">
+        <span className={`silk ${on ? "lit" : "dim"}`}>{top}</span>
+        <button className={`bat ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? top}>
+          <BatSvg on={on} />
+        </button>
+        <span className={`silk ${on ? "dim" : "lit"}`}>{bottom}</span>
       </div>
     );
   }
   return (
-    <div className="toggle-wrap">
+    <div className="slide-wrap">
       <span className={`silk ${on ? "lit" : "dim"}`}>{top}</span>
-      <button className={`bat ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? top}>
-        <BatSvg on={on} />
+      <button className={`slide ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on} aria-label={label ?? `${top} / ${bottom}`}>
+        <span className="slide-knob" />
       </button>
       <span className={`silk ${on ? "dim" : "lit"}`}>{bottom}</span>
     </div>

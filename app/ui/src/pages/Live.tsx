@@ -86,7 +86,6 @@ export default function LivePage({ live }: { live?: Live }) {
       <Rack>
         <RackUnit title="SECUENCIA" subtitle={st?.song_title ? `${st.song}. ${st.song_title}` : "Sin show abierto"} side={
           <div className="side-col">
-            <Led on={!!st?.playing} />
             <Toggle on={!!st?.playing} top="PLAY" bottom="STOP" label="Play / stop"
               onClick={() => send({ cmd: st?.playing ? "stop" : "play" }, "play")} />
           </div>
@@ -164,11 +163,7 @@ function Tracks({ live, send }: { live?: Live; send: (m: Record<string, unknown>
       {tracks.map((t) => {
         const on = !mutes[t];
         return (
-          <div className="track" key={t}>
-            <Led on={on} />
-            <Toggle on={on} top="ON" bottom="OFF" label={t} onClick={() => send({ cmd: "mute", track: t, on })} />
-            <span className="track-name">{t.toUpperCase()}</span>
-          </div>
+          <Toggle key={t} look="push" on={on} label={t.toUpperCase()} onClick={() => send({ cmd: "mute", track: t, on })} />
         );
       })}
     </div>
@@ -222,8 +217,7 @@ function VoiceUnit() {
   return (
     <RackUnit title="VOZ" subtitle="Control por voz" side={
       <div className="side-col">
-        <Led on={running} />
-        <Toggle on={running} top="ON" bottom="OFF" label="Voz" onClick={toggle} />
+        <Toggle look="push" on={running} label="POWER" onClick={toggle} />
       </div>
     }>
       <div className="voice-grid">

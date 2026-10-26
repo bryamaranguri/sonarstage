@@ -25,6 +25,10 @@ John Mayer X). Se toma la sensación, no la marca: dibujos propios en CSS/SVG.
 - Forma de **equipo real** para cada módulo: chasis grueso redondeado, borde superior
   iluminado, laterales más oscuros, patas de goma.
 - Muestrario de todas las piezas en `#muestras` (para elegir y ajustar).
+- **Dos opciones (26/10):** con nombre (PLAY/STOP, BUCLE/SEGUIR, TOCA/SECUENCIA) →
+  **interruptor deslizante**: ranura oscura vertical y perilla de aluminio torneado.
+  ON/OFF (respaldos EN VIVO, voz) → **botón redondo** con aro cromado, tapa hundida y
+  **barra de luz** encima (verde encendido). La palanca de tuerca se descartó.
 - Elementos que eligió Bryam (24/10): **foco LED**, **palanca ON/OFF**, **domo crema**, **medidor VU** con números (compases de la
   sección), **selector de 3–4 posiciones** (rueda blanca dentada: modo de salto
   SECCIÓN / COMPÁS / YA), **palanca naranja de 3 posiciones** (activación: AMBAS /
