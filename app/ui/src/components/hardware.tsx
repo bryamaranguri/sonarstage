@@ -407,3 +407,23 @@ export function TapButton({ label, onClick }: { label: string; onClick?: () => v
     </div>
   );
 }
+
+/** Square key you press once (the TAP style), with a light bar above that shows its state:
+ * amber = about to happen, green = running, red = stop/cancel armed. Optional icon. */
+export function Key({ label, onClick, light, lightColor = "amber", blink, icon, title, disabled }: {
+  label: string; onClick?: () => void; light?: boolean; lightColor?: "amber" | "green" | "red";
+  blink?: boolean; icon?: "play" | "stop"; title?: string; disabled?: boolean;
+}) {
+  return (
+    <div className="key-wrap">
+      <span className={`light-bar ${light ? "on " + lightColor : ""} ${light && blink ? "blink" : ""}`} />
+      <button className="sq-key" onClick={onClick} title={title} disabled={disabled} aria-label={label}>
+        <span className="sq-cap">
+          {icon === "play" && <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5.5v13l11-6.5z" /></svg>}
+          {icon === "stop" && <svg viewBox="0 0 24 24" aria-hidden><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" /></svg>}
+        </span>
+      </button>
+      <span className="silk">{label}</span>
+    </div>
+  );
+}

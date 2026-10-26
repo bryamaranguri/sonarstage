@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, Live, VoiceLine } from "../api";
-import { FlatKnob, Gauge, HwButton, Lcd, Led, Lever, ModeSelector, Rack, RackUnit, SectionMeter, Toggle } from "../components/hardware";
+import { FlatKnob, Gauge, Key, Lcd, Led, Lever, ModeSelector, Rack, RackUnit, SectionMeter, Toggle } from "../components/hardware";
 import { loadVoiceSettings, saveVoiceSettings, WakeMode, WAKE_WORDS_BY_MODE } from "./Settings";
 
 const SONG_LOCATOR = /^\s*\d+\.\s/;
@@ -85,9 +85,9 @@ export default function LivePage({ live }: { live?: Live }) {
 
       <Rack>
         <RackUnit title="SECUENCIA" subtitle={st?.song_title ? `${st.song}. ${st.song_title}` : "Sin show abierto"} side={
-          <div className="side-col">
-            <Toggle on={!!st?.playing} top="PLAY" bottom="STOP" label="Play / stop"
-              onClick={() => send({ cmd: st?.playing ? "stop" : "play" }, "play")} />
+          <div className="side-col transport">
+            <Key label="PLAY" icon="play" light={!!st?.playing} lightColor="green" onClick={() => send({ cmd: "play" }, "play")} />
+            <Key label="STOP" icon="stop" onClick={() => send({ cmd: "stop" }, "stop")} />
           </div>
         }>
           <div className="seq-grid">
@@ -110,11 +110,10 @@ export default function LivePage({ live }: { live?: Live }) {
               </Lcd>
             </div>
             <div className="seq-buttons">
-              <HwButton label="REPETIR" onClick={() => send({ cmd: "repeat" })}
-                led={!!target && target === st?.section} ledColor="amber" ledBlink />
-              <HwButton label="SIGUIENTE" onClick={() => send({ cmd: "next_section" })}
-                led={!!target && target !== st?.section} ledColor="amber" ledBlink />
-              <HwButton label="CANCELAR" tone="dark" onClick={() => send({ cmd: "cancel" })} led={!!st?.pending} ledColor="red" />
+              <Key label="REPETIR" onClick={() => send({ cmd: "repeat" })} light={!!target && target === st?.section} blink />
+              <Key label="SIGUIENTE" onClick={() => send({ cmd: "next_section" })} light={!!target && target !== st?.section} blink />
+              <Key label="CANCELAR" onClick={() => send({ cmd: "cancel" })} light={!!st?.pending} lightColor="red" />
+              <Key label="SIG. CANCIÓN" onClick={() => send({ cmd: "next_song" })} />
               <div className="bracket" aria-hidden />
               <ModeSelector title="SALTO" value={(st?.jump_mode ?? "section") as "section" | "bar" | "now"}
                 options={[{ id: "section", label: "SECCIÓN" }, { id: "bar", label: "COMPÁS" }, { id: "now", label: "YA" }]}

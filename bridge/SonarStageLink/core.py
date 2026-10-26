@@ -26,7 +26,9 @@ import re
 SONG_LOCATOR = re.compile(r"^\s*(\d+)\.\s+(.+)$")
 TRAILING_NUMBER = re.compile(r"\s+\d+$")
 JUMP_MODES = ("section", "bar", "now")   # at the end of the section, at the next bar, at once
-GUIDE_NAMES = {"guía", "guia", "guide", "cues", "cue"}
+# only the guide track itself, never a group: "Cues" was here and muted the whole CUES
+# group (click included) during a hold (seen on stage, 26 Oct)
+GUIDE_NAMES = {"guía", "guia", "guide"}
 
 
 def base_name(name):
@@ -371,7 +373,8 @@ class LinkCore(object):
                                               or self.landing is not None))
         if want and not self.guide_quieted:
             for t in self.song.tracks:
-                if t.name.strip().lower() in GUIDE_NAMES and not t.mute:
+                if (t.name.strip().lower() in GUIDE_NAMES and not getattr(t, "is_foldable", False)
+                        and not t.mute):
                     t.mute = True
                     self.guide_quieted.append(t)
         elif not want and self.guide_quieted:

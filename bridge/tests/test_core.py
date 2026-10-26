@@ -414,3 +414,16 @@ def test_jump_modes(setup):
     core.handle({"cmd": "goto", "section": "Sección 3"})
     assert song.current_song_time == 40               # at once
     assert not core.handle({"cmd": "jump_mode", "mode": "luego"})["ok"]
+
+
+def test_smart_guide_never_touches_the_cues_group_or_the_click():
+    song = FakeSong(CUES)
+    group = Track("CUES")
+    group.is_foldable = True
+    song.tracks = [group, Track("Click"), Track("Guía")]
+    core = LinkCore(song, bar_quantization=Q_BAR)
+    song.current_song_time = 26.0
+    song.continue_playing()
+    core.handle({"cmd": "hold"})
+    run(core, song, 2)
+    assert [t.mute for t in song.tracks] == [False, False, True]     # only the guide

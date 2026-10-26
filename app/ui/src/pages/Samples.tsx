@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Fader, Gauge, HwButton, Lcd, Led, Lever, ModeSelector, Rack, RackUnit, SectionMeter, TapButton, Toggle } from "../components/hardware";
+import { Fader, Gauge, HwButton, Key, Lcd, Lever, ModeSelector, Rack, RackUnit, SectionMeter, Toggle } from "../components/hardware";
 
 const PALETTE: [string, string, string][] = [
   ["--room", "Sala", "fondo de madera"],
@@ -37,9 +37,11 @@ export default function SamplesPage() {
       </RackUnit>
       <RackUnit title="CONTROLES" compact>
         <div className="tracks">
-          <HwButton label="DOMO" />
-          <HwButton label="OSCURO" tone="dark" led ledColor="red" />
-          <TapButton label="TAP" />
+          <Key label="TECLA" />
+          <Key label="PENDIENTE" light blink />
+          <Key label="PLAY" icon="play" light lightColor="green" />
+          <Key label="STOP" icon="stop" />
+          <HwButton label="PERILLA (VALORES)" />
           <ModeSelector title="SALTO" value={mode} onChange={setMode}
             options={[{ id: "section", label: "SECCIÓN" }, { id: "bar", label: "COMPÁS" }, { id: "now", label: "YA" }]} />
           <Lever label="ACTIVACIÓN" value={lev} onChange={setLev}
