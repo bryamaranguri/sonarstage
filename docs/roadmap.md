@@ -40,3 +40,5 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [ ] Pendiente (amigo): mover niveles de parámetros de plugins en la consola Apollo desde el show. Investigar qué permite controlar la consola por MIDI (la documentación de UAD solo menciona tap tempo).
 - [x] Pistas MIDI: HX Stomp (preset/snapshot/CC por sección) y tap tempo para la consola UAD — *pendiente: ruteo a los puertos y prueba con equipos reales*
 - [ ] Separación de stems para secuencias premezcladas
+
+- [x] App (primera versión, en el navegador): En vivo, Biblioteca, Show, Matriz de partes, Ajustes — *falta envoltorio Tauri y .dmg; escuchar cada stem solo en la matriz*

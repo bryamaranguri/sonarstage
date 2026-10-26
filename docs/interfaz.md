@@ -25,6 +25,8 @@ John Mayer X). Se toma la sensación, no la marca: dibujos propios en CSS/SVG.
 - Forma de **equipo real** para cada módulo: chasis grueso redondeado, borde superior
   iluminado, laterales más oscuros, patas de goma.
 - Muestrario de todas las piezas en `#muestras` (para elegir y ajustar).
+- Colores de grupo de la plantilla de Ableton en la matriz: **morado = EN VIVO** (lo toca
+  el músico), **ámbar = SECUENCIA**.
 - **Dos opciones (26/10):** con nombre (PLAY/STOP, BUCLE/SEGUIR, TOCA/SECUENCIA) →
   **interruptor deslizante**: ranura oscura vertical y perilla de aluminio torneado.
   ON/OFF (respaldos EN VIVO, voz) → **botón redondo** con aro cromado, tapa hundida y

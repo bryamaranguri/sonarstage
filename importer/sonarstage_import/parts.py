@@ -196,6 +196,34 @@ def set_parts(song_dir, band, musician_id, specs=(), whole=None):
     return song
 
 
+def set_matrix(song_dir, band, musician_id, matrix):
+    """Replace a musician's whole matrix ({startBar: [labels]}); None or {} goes back to
+    their default stems. What the app sends after every click."""
+    if not matrix:
+        clear_parts(song_dir, band, musician_id)
+        return json.loads((Path(song_dir) / "cancion.json").read_text())
+    song = json.loads((Path(song_dir) / "cancion.json").read_text())
+    starts = [sec["startBar"] for sec in song["sections"]]
+    specs = []
+    for bar, labels in matrix.items():
+        if int(bar) not in starts:
+            raise PartsError(f"No hay una sección que empiece en el compás {bar}.")
+        if labels:
+            specs.append("%d=%s" % (starts.index(int(bar)) + 1, "+".join(labels)))
+    if not specs:                      # nothing taken anywhere: an empty matrix, not the default
+        song.setdefault("parts", {}).setdefault(band["id"], {})[musician_id] = {}
+        (Path(song_dir) / "cancion.json").write_text(json.dumps(song, indent=1, ensure_ascii=False))
+        return song
+    return set_parts(song_dir, band, musician_id, specs)
+
+
+def musician_stems(song, musician):
+    """Stems a musician could play here: those of their role, plus their defaults."""
+    want = {d.lower() for d in musician.get("default", [])}
+    return [s["label"] for s in song["stems"]
+            if s["role"] == musician.get("role") or s["label"].lower() in want]
+
+
 def set_pickup(song_dir, section_number, beats):
     song_path = Path(song_dir) / "cancion.json"
     song = json.loads(song_path.read_text())
@@ -244,6 +272,27 @@ def activity(song_dir, song, roles=None, sr=22050):
             levels.append(float(20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-9)) if len(seg) else -120.0)
         table[s["label"]] = levels
     return table
+
+
+def activity_cached(song_dir, song):
+    """activity() for every stem but click and guide, kept in actividad.json next to the
+    recipe until the stems or the sections change (decoding takes a few seconds)."""
+    import hashlib
+    key = hashlib.sha1(json.dumps([[s["label"], s["file"], s["gainDb"]] for s in song["stems"]] +
+                                  [[x["startBar"], x.get("pickupBeats", 0)] for x in song["sections"]] +
+                                  [song["tempo"]], sort_keys=True).encode()).hexdigest()
+    cache = Path(song_dir) / "actividad.json"
+    if cache.exists():
+        try:
+            data = json.loads(cache.read_text())
+            if data.get("key") == key:
+                return data["levels"]
+        except ValueError:
+            pass
+    roles = {s["role"] for s in song["stems"]} - {"click", "guide"}
+    levels = activity(song_dir, song, roles)
+    cache.write_text(json.dumps({"key": key, "levels": levels}))
+    return levels
 
 
 def _cell(level, loudest):

@@ -49,6 +49,10 @@ export type Section = { name: string; kind: string; startBar: number; bars: numb
 export type Song = { title: string; tempo: { bpm: number }; sections: Section[]; stems: { label: string; role: string }[] };
 export type Band = { id: string; name: string; musicians: { id: string; name: string; role: string }[] };
 export type ShowInfo = { name: string; songs: { title: string; semitones: number }[]; band?: string; profile?: string; liveVersion?: string };
+export type PartsMusician = { id: string; name: string; role?: string; default: string[]; stems: string[]; matrix: Record<string, string[]> | null };
+export type PartsView = { title: string; folder: string; bpm: number; timeSignature: string;
+  sections: { name: string; kind?: string; startBar: number; bars: number; pickupBeats: number }[];
+  band: { id: string; name: string }; musicians: PartsMusician[] };
 export type Job = { id: string; state: "running" | "done" | "error"; error?: string; result?: any };
 export type VoiceLine = { n: number; t: number; text: string };
 export type Voice = { running: boolean; settings: any; lines: VoiceLine[] };
@@ -81,6 +85,11 @@ export const api = {
   voiceStart: (body: unknown) => call<Voice>("POST", "voice/start", body),
   voiceStop: () => call<Voice>("POST", "voice/stop"),
   devices: () => call<Device[]>("GET", "devices"),
+  parts: (folder: string, band: string) => call<PartsView>("GET", `parts/${encodeURIComponent(folder)}?band=${encodeURIComponent(band)}`),
+  setParts: (folder: string, band: string, musician: string, matrix: Record<string, string[]> | null) =>
+    call<PartsView>("POST", `parts/${encodeURIComponent(folder)}`, { band, musician, matrix }),
+  setPickup: (folder: string, section: number, beats: number) => call<{ ok: boolean }>("POST", `parts/${encodeURIComponent(folder)}/pickup`, { section, beats }),
+  activity: (folder: string) => call<{ ready: boolean; levels?: Record<string, number[]>; error?: string }>("GET", `parts/${encodeURIComponent(folder)}/activity`),
 };
 
 /** Re-run `fn` every `ms` while mounted (polling the engine is enough on one Mac). */

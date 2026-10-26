@@ -103,6 +103,34 @@ def list_shows(cfg):
     return out
 
 
+# --- parts matrix ---------------------------------------------------------------------------
+
+def band_by_id(cfg, band_id):
+    from . import parts
+    path = cfg.library / "_bandas" / ("%s.json" % band_id)
+    if not band_id or not path.exists() or "/" in band_id:
+        raise ApiError(404, "No hay una banda «%s»" % band_id)
+    return parts.load_band(path)
+
+
+def parts_view(cfg, folder, band_id):
+    from . import parts
+    d = song_dir(cfg, folder)
+    song = json.loads((d / "cancion.json").read_text())
+    band = band_by_id(cfg, band_id)
+    matrices = song.get("parts", {}).get(band["id"], {})
+    musicians = []
+    for m in band["musicians"]:
+        stems = parts.musician_stems(song, m)
+        musicians.append({"id": m["id"], "name": m["name"], "role": m.get("role"), "default": m.get("default", []),
+                          "stems": stems, "matrix": matrices.get(m["id"])})
+    return {"title": song["title"], "folder": folder, "bpm": song["tempo"]["bpm"],
+            "timeSignature": song["tempo"]["timeSignature"],
+            "sections": [{"name": x["name"], "kind": x.get("kind"), "startBar": x["startBar"], "bars": x["bars"],
+                          "pickupBeats": x.get("pickupBeats", 0)} for x in song["sections"]],
+            "band": {"id": band["id"], "name": band["name"]}, "musicians": musicians}
+
+
 # --- jobs -----------------------------------------------------------------------------------
 
 class Jobs(object):
@@ -230,6 +258,8 @@ class Engine(object):
         self.cfg, self.send = cfg, send
         self.jobs = Jobs()
         self.voice = Voice(cfg, send)
+        self.lock = threading.Lock()
+        self.activity_jobs = {}
 
     def route(self, method, path, query, body):
         parts = [unquote(p) for p in path.strip("/").split("/")][1:]          # after "api"
@@ -242,6 +272,25 @@ class Engine(object):
             if len(parts) == 1:
                 return list_library(self.cfg)
             return json.loads((song_dir(self.cfg, parts[1]) / "cancion.json").read_text())
+        if key == ("GET", "parts") and len(parts) == 2:
+            return parts_view(self.cfg, parts[1], query.get("band", ""))
+        if key == ("GET", "parts") and len(parts) == 3 and parts[2] == "activity":
+            return self.activity(parts[1])
+        if key == ("POST", "parts") and len(parts) == 2:
+            from . import parts as P
+            band = band_by_id(self.cfg, body.get("band", ""))
+            try:
+                P.set_matrix(song_dir(self.cfg, parts[1]), band, body.get("musician"), body.get("matrix"))
+            except P.PartsError as e:
+                raise ApiError(400, str(e))
+            return parts_view(self.cfg, parts[1], band["id"])
+        if key == ("POST", "parts") and len(parts) == 3 and parts[2] == "pickup":
+            from . import parts as P
+            try:
+                P.set_pickup(song_dir(self.cfg, parts[1]), int(body["section"]), float(body.get("beats", 0)))
+            except (P.PartsError, KeyError, ValueError) as e:
+                raise ApiError(400, str(e))
+            return {"ok": True}
         if key == ("GET", "bands"):
             return list_bands(self.cfg)
         if key == ("GET", "shows"):
@@ -275,6 +324,21 @@ class Engine(object):
             if action == "stop":
                 return self.voice.stop()
         raise ApiError(404, "No existe %s %s" % (method, path))
+
+    def activity(self, folder):
+        """Levels per stem and section; computed once in the background, then cached."""
+        from . import parts as P
+        d = song_dir(self.cfg, folder)
+        with self.lock:
+            job = self.activity_jobs.get(folder)
+            if job is None or (job["state"] == "error"):
+                song = json.loads((d / "cancion.json").read_text())
+                job = self.jobs.start("activity", lambda: P.activity_cached(d, song))
+                self.activity_jobs[folder] = job
+        if job["state"] == "done":
+            self.activity_jobs.pop(folder, None)        # next time re-checks the cache (cheap)
+            return {"ready": True, "levels": job["result"]}
+        return {"ready": False, "error": job.get("error")}
 
     def open_show(self, name):
         import subprocess

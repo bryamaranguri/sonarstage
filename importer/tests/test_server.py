@@ -119,3 +119,33 @@ def test_voice_status_and_the_app_page(api):
     status, page = call("GET", "/biblioteca")                  # any page is the single-page app
     assert status == 200 and b"SonarStage" in page
     assert call("GET", "/api/nada")[0] == 404
+
+
+def test_parts_matrix_over_the_api(api, monkeypatch):
+    call, engine, sent, tmp = api
+    song = json.loads((tmp / "biblioteca" / "Alegras mis días" / "cancion.json").read_text())
+    song["stems"] += [{"file": f"EG {n}.wav", "role": "eg", "label": f"EG {n}", "harmonic": True, "gainDb": 0,
+                       "offsetMs": 0, "monoSafe": True, "sourceFormat": "wav"} for n in (1, 2)]
+    (tmp / "biblioteca" / "Alegras mis días" / "cancion.json").write_text(json.dumps(song))
+    (tmp / "biblioteca" / "_bandas" / "mi-banda.json").write_text(json.dumps(
+        {"schemaVersion": 1, "id": "mi-banda", "name": "Mi banda",
+         "musicians": [{"id": "guitarra", "name": "Guitarra", "role": "eg", "default": ["EG 1"]}]}))
+    path = "/api/parts/Alegras%20mis%20d%C3%ADas"
+    view = call("GET", path + "?band=mi-banda")[1]
+    g = view["musicians"][0]
+    assert g["stems"] == ["EG 1", "EG 2"] and g["matrix"] is None and view["sections"][1]["startBar"] == 3
+    status, view = call("POST", path, {"band": "mi-banda", "musician": "guitarra", "matrix": {"3": ["EG 2"]}})
+    assert status == 200 and view["musicians"][0]["matrix"] == {"3": ["EG 2"]}
+    assert call("POST", path, {"band": "mi-banda", "musician": "guitarra", "matrix": {"5": ["EG 2"]}})[0] == 400
+    view = call("POST", path, {"band": "mi-banda", "musician": "guitarra", "matrix": None})[1]
+    assert view["musicians"][0]["matrix"] is None                       # back to the default
+    assert call("POST", path + "/pickup", {"section": 2, "beats": 1})[1]["ok"]
+    assert call("GET", path + "?band=mi-banda")[1]["sections"][1]["pickupBeats"] == 1
+
+    monkeypatch.setattr("sonarstage_import.parts.activity_cached", lambda d, s: {"EG 1": [-80.0, -12.0]})
+    for _ in range(40):
+        r = call("GET", path + "/activity")[1]
+        if r["ready"]:
+            break
+        time.sleep(0.05)
+    assert r == {"ready": True, "levels": {"EG 1": [-80.0, -12.0]}}
