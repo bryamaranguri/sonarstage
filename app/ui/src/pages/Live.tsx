@@ -44,7 +44,6 @@ export default function LivePage({ live }: { live?: Live }) {
     <>
       <div className="header-strip">
         <Readout label="TEMPO" text={st ? st.tempo.toFixed(1) : "—"} unit="BPM" pulseBpm={st?.playing ? st.tempo : 0} />
-        <Readout label="COMPÁS" text={bars ? `${bar}/${bars}` : "—"} />
         <div className="hs-divider" />
         <div className="hs-center">
           <div className="hs-actions">
@@ -52,8 +51,7 @@ export default function LivePage({ live }: { live?: Live }) {
             <span className="vsep" />
             <button className="arrow" onClick={() => send({ cmd: "next_song" })} aria-label="Siguiente canción">→</button>
             <span className="spacer" />
-            <button className="text-btn" onClick={() => send({ cmd: "play" })}>PLAY</button>
-            <button className="text-btn" onClick={() => send({ cmd: "stop" })}>STOP</button>
+            <span className="hs-caption">{order.length ? `CANCIÓN ${Math.max(0, songIdx) + 1} DE ${order.length}` : "SETLIST"}</span>
           </div>
           <label className="preset-select">
             <select value={st?.song ?? ""} onChange={(e) => send({ cmd: "song", number: Number(e.target.value) })}>
@@ -73,7 +71,7 @@ export default function LivePage({ live }: { live?: Live }) {
             <button className={`switch ${st?.autostop ? "on" : ""}`} onClick={() => send({ cmd: "autostop", on: !st?.autostop })} aria-label="Parada automática" />
           </div>
           <div className="toggle-row dimmed">
-            GUÍA INTELIGENTE <Led on={!!st?.guide_quiet} color="amber" />
+            GUÍA EN SILENCIO <Led on={!!st?.guide_quiet} color="amber" />
           </div>
         </div>
       </div>
@@ -84,7 +82,7 @@ export default function LivePage({ live }: { live?: Live }) {
       {error && <div className="banner warn" onClick={() => setError(undefined)}>{error}</div>}
 
       <Rack>
-        <RackUnit title="SECUENCIA" subtitle={st?.song_title ? `${st.song}. ${st.song_title}` : "Sin show abierto"} side={
+        <RackUnit title="SECUENCIA" subtitle={st ? (st.playing ? "Sonando" : "Detenido") : "Sin show abierto"} side={
           <div className="side-col transport">
             <Key label="PLAY" icon="play" light={!!st?.playing} lightColor="green" onClick={() => send({ cmd: "play" }, "play")} />
             <Key label="STOP" icon="stop" onClick={() => send({ cmd: "stop" }, "stop")} />
@@ -95,16 +93,15 @@ export default function LivePage({ live }: { live?: Live }) {
               <SectionMeter progress={progress} lastBarFrom={bars ? (bars - 1) / bars : 1} label={sectionName.toUpperCase()}
                 sub={bars ? `COMPÁS ${bar} DE ${bars}` : "DETENIDO"} bars={bars} />
               <Lcd className="lcd-seq">
-                <div className="lcd-row"><span className="lcd-key">CANCIÓN</span><span className="lcd-key">TEMPO</span></div>
+                <div className="lcd-row"><span className="lcd-key">CANCIÓN</span><span className="lcd-key">{st?.loop ? "EN BUCLE" : ""}</span></div>
                 <div className="lcd-row big">
                   <span className="amber">{st?.song_title ?? "—"}</span>
-                  <span>{st ? st.tempo.toFixed(1) : "—"}</span>
+                  <span className={st?.loop ? "amber" : ""}>{st?.loop ? sectionName.toUpperCase() : ""}</span>
                 </div>
                 <div className="lcd-row">
                   <span className="lcd-key">{target ? "VA A" : "DESPUÉS"}</span>
                   <span className={target ? "amber blink-soft" : ""}>{target ?? (st?.next_song ?? "—")}</span>
                 </div>
-                <Gauge label="SECCIÓN" value={bars ? (bar - 1 + frac) / bars : 0} text={bars ? `${bar}/${bars}` : "—"} />
                 <Gauge label="CANCIÓN" value={sections.length ? (currentIndex + 1) / sections.length : 0}
                   text={sections.length ? `${Math.max(0, currentIndex + 1)}/${sections.length}` : "—"} />
               </Lcd>
@@ -113,7 +110,6 @@ export default function LivePage({ live }: { live?: Live }) {
               <Key label="REPETIR" onClick={() => send({ cmd: "repeat" })} light={!!target && target === st?.section} blink />
               <Key label="SIGUIENTE" onClick={() => send({ cmd: "next_section" })} light={!!target && target !== st?.section} blink />
               <Key label="CANCELAR" onClick={() => send({ cmd: "cancel" })} light={!!st?.pending} lightColor="red" />
-              <Key label="SIG. CANCIÓN" onClick={() => send({ cmd: "next_song" })} />
               <div className="bracket" aria-hidden />
               <ModeSelector title="SALTO" value={(st?.jump_mode ?? "section") as "section" | "bar" | "now"}
                 options={[{ id: "section", label: "SECCIÓN" }, { id: "bar", label: "COMPÁS" }, { id: "now", label: "YA" }]}

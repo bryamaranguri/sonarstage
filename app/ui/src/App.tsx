@@ -9,12 +9,14 @@ import MatrixPage from "./pages/Matrix";
 import SamplesPage from "./pages/Samples";
 
 type Page = "live" | "library" | "show" | "matrix" | "settings" | "muestras";
-const PAGES: { id: Exclude<Page, "muestras">; label: string }[] = [
-  { id: "live", label: "En vivo" },
-  { id: "library", label: "Biblioteca" },
-  { id: "show", label: "Show" },
-  { id: "matrix", label: "Matriz de partes" },
-  { id: "settings", label: "Ajustes" },
+// in the order of the work, like a signal chain: import songs → who plays what → the
+// week's show → on stage. Settings stands apart at the end.
+const PAGES: { id: Exclude<Page, "muestras">; label: string; title: string }[] = [
+  { id: "library", label: "BIBLIOTECA", title: "Canciones importadas" },
+  { id: "matrix", label: "PARTES", title: "Matriz de partes: qué toca cada músico" },
+  { id: "show", label: "SHOW", title: "Armar el show de la semana" },
+  { id: "live", label: "EN VIVO", title: "Control en escenario" },
+  { id: "settings", label: "AJUSTES", title: "Audio y voz" },
 ];
 
 function readPage(): Page {
@@ -36,9 +38,10 @@ export default function App() {
     <div className="app">
       <nav className="topnav" aria-label="Pantallas">
         {PAGES.map((p) => (
-          <a key={p.id} href={"#" + p.id} className={page === p.id ? "active" : ""} title={p.label} aria-label={p.label}>
+          <a key={p.id} href={"#" + p.id} className={`${page === p.id ? "active" : ""} ${p.id === "settings" ? "apart" : ""}`}
+            title={p.title} aria-label={p.title}>
             {Icons[p.id]}
-            <span className="dot" />
+            <span className="nav-label">{p.label}</span>
           </a>
         ))}
       </nav>
@@ -58,8 +61,7 @@ export default function App() {
         <span>{live?.state ? `${live.state.tempo.toFixed(1)} BPM` : "— BPM"}</span>
         <span className="sep" />
         <span>{live?.state?.song_title ? live.state.song_title.toUpperCase() : "SIN SHOW"}</span>
-        <span className="sep" />
-        <a href="#settings">AJUSTES</a>
+
         <span className="brand">SONARSTAGE</span>
       </footer>
     </div>

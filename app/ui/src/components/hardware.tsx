@@ -295,20 +295,30 @@ export function SectionMeter({ progress, lastBarFrom, label, sub, bars = 0 }: {
 
 /** Line icons for the top navigation (original drawings). */
 export const Icons = {
-  live: (
-    <svg viewBox="0 0 48 48"><rect x="10" y="5" width="28" height="38" rx="3" /><path d="M16 26h4l3-8 4 14 3-6h3" /></svg>
-  ),
+  // stacked stems, each with its waveform: the songs already imported
   library: (
-    <svg viewBox="0 0 48 48"><rect x="6" y="14" width="36" height="22" rx="2" /><path d="M6 20h36M12 30h10" /></svg>
+    <svg viewBox="0 0 48 48"><rect x="6" y="8" width="36" height="9" rx="2" /><rect x="6" y="20" width="36" height="9" rx="2" /><rect x="6" y="32" width="36" height="9" rx="2" />
+      <path d="M11 12.5h3l2-2 2 4 2-2h3M11 24.5h4l2 2 2-4 2 2h2M11 36.5h2l2-2 2 4 2-3 2 1h3" /></svg>
   ),
-  show: (
-    <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="17" /><circle cx="24" cy="24" r="6" /><path d="M24 7v4" /></svg>
-  ),
+  // a grid with some cells taken: who covers which part, section by section
   matrix: (
-    <svg viewBox="0 0 48 48"><path d="M10 8v32M24 8v32M38 8v32" /><circle cx="10" cy="30" r="3.5" /><circle cx="24" cy="16" r="3.5" /><circle cx="38" cy="26" r="3.5" /></svg>
+    <svg viewBox="0 0 48 48"><rect x="6" y="8" width="36" height="32" rx="3" /><path d="M6 18.7h36M6 29.3h36M18 8v32M30 8v32" />
+      <rect x="20" y="10.5" width="8" height="6" rx="1" fill="currentColor" stroke="none" /><rect x="8" y="21" width="8" height="6" rx="1" fill="currentColor" stroke="none" />
+      <rect x="32" y="31.5" width="8" height="6" rx="1" fill="currentColor" stroke="none" /></svg>
   ),
+  // the setlist: numbered songs in order
+  show: (
+    <svg viewBox="0 0 48 48"><path d="M19 13h22M19 24h22M19 35h16" /><path d="M8 10l3-1.5V16M7.5 21.5c1-1.6 4.6-1.6 4.6.6 0 1.8-4.6 3.4-4.6 4.9h4.8M7.6 32.2c1.2-1.3 4.4-1 4.4.9 0 1.2-1.4 1.6-2.4 1.6 1.2 0 2.6.5 2.6 1.9 0 2-3.6 2.2-4.8.8" /></svg>
+  ),
+  // play inside an "on air" ring: the show running
+  live: (
+    <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="10" /><path d="M21.5 19.5v9l7-4.5z" fill="currentColor" />
+      <path d="M11 13a17 17 0 0 0 0 22M37 13a17 17 0 0 1 0 22M6 8.5a24 24 0 0 0 0 31M42 8.5a24 24 0 0 1 0 31" /></svg>
+  ),
+  // a gear, not a sun
   settings: (
-    <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="7" /><path d="M24 6v6M24 36v6M6 24h6M36 24h6M11.3 11.3l4.2 4.2M32.5 32.5l4.2 4.2M11.3 36.7l4.2-4.2M32.5 15.5l4.2-4.2" /></svg>
+    <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="6" />
+      <path d="M21 6h6l1 5 4 1.7 4.3-2.8 4.2 4.2-2.8 4.3L39.4 22l5 1v6l-5 1-1.7 4 2.8 4.3-4.2 4.2-4.3-2.8-4 1.7-1 5h-6l-1-5-4-1.7-4.3 2.8-4.2-4.2 2.8-4.3L8.6 30l-5-1v-6l5-1 1.7-4-2.8-4.3 4.2-4.2 4.3 2.8 4-1.7z" transform="translate(24 24) scale(.82) translate(-24 -24)" /></svg>
   ),
 };
 

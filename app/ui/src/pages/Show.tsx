@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, Band, fmtSemis, fmtTime, Job, ShowInfo, SongSummary } from "../api";
-import { Lcd, Led, Rack, RackUnit, Screw, Toggle } from "../components/hardware";
+import { Lcd, Rack, RackUnit, Screw, Toggle } from "../components/hardware";
+import { loadVoiceSettings } from "./Settings";
 
 type Pick = { folder: string; title: string; semitones: number };
 
@@ -19,6 +20,9 @@ export default function ShowPage() {
   const [band, setBand] = useState<string>("");
   const [present, setPresent] = useState<string[] | null>(null);
   const [profile, setProfile] = useState("2");
+  // the director's mic, heard by the band with the click: the same input the voice control uses
+  const micInput = loadVoiceSettings().channel;
+  const [talkback, setTalkback] = useState(true);
   const [job, setJob] = useState<Job>();
   const [err, setErr] = useState<string>();
 
@@ -65,7 +69,7 @@ export default function ShowPage() {
     setErr(undefined);
     try {
       setJob(await api.prepareShow({ name, songs: picks.map((p) => ({ title: p.title, semitones: p.semitones })),
-        band: band || undefined, present: present ?? undefined, profile }));
+        band: band || undefined, present: present ?? undefined, profile, talkback: talkback ? micInput : undefined }));
     } catch (e: any) {
       setErr(e.message);
     }
@@ -87,6 +91,11 @@ export default function ShowPage() {
           <div className="toggle-row">SALIDAS
             <select className="mini" value={profile} onChange={(e) => setProfile(e.target.value)}>
               <option value="2">2</option><option value="4">4</option>
+            </select>
+          </div>
+          <div className="toggle-row" title="Tu micrófono de órdenes en los in-ears, junto al click">TALKBACK
+            <select className="mini" value={talkback ? "on" : "off"} onChange={(e) => setTalkback(e.target.value === "on")}>
+              <option value="on">Entrada {micInput}</option><option value="off">No</option>
             </select>
           </div>
           <div className="toggle-row">BANDA
@@ -160,7 +169,6 @@ export default function ShowPage() {
             <div className="shows-list">
               {shows.map((s) => (
                 <div key={s.name} className="show-row">
-                  <Led on={false} />
                   <span className="sr-name">{s.name}</span>
                   <span className="sr-songs">{s.songs.map((x) => x.title + (x.semitones ? ` (${fmtSemis(x.semitones)})` : "")).join(" · ")}</span>
                   <button className="text-btn light" onClick={() => api.openShow(s.name)}>ABRIR</button>

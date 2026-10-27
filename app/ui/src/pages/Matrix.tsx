@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, Band, PartsMusician, PartsView, SongSummary } from "../api";
-import { Readout, Lcd, Lever, ModeSelector, Rack, RackUnit } from "../components/hardware";
+import { Lcd, Lever, ModeSelector, Rack, RackUnit } from "../components/hardware";
 
 type Zoom = "22" | "30" | "42";
 type Matrix = Record<string, string[]>;
@@ -93,10 +93,7 @@ export default function MatrixPage() {
   return (
     <>
       <div className="header-strip">
-        <Readout label="STEMS" text={String(m?.stems.length ?? "—")} />
-        <Readout label="SECCIONES" text={String(view?.sections.length ?? "—")} />
-        <div className="hs-divider" />
-        <div className="hs-center">
+        <div className="hs-center wide">
           <div className="hs-actions">
             <button className="arrow" onClick={() => songIdx > 0 && setFolder(songs[songIdx - 1].folder)} aria-label="Canción anterior">←</button>
             <span className="vsep" />

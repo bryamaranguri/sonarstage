@@ -56,3 +56,17 @@ John Mayer X). Se toma la sensación, no la marca: dibujos propios en CSS/SVG.
 - Barra lateral de músicos con **"Toca esta semana"** (configuración semanal).
 - Resumen arriba: qué lleva la pista EN VIVO del músico y qué sigue en la secuencia.
 - Atajos: volver a lo habitual (stems por defecto en toda la canción) y vaciar.
+
+
+## Cada dato en un solo lugar (27/10/2026)
+
+- Lo que no se puede mover **no es una perilla**: los valores de solo lectura van en un display hundido
+  (`Readout`). El de TEMPO lleva un LED que pulsa a la velocidad de la canción.
+- Se quitaron repeticiones: COMPÁS del encabezado (ya está en el VU), PLAY/STOP de texto (ya están las
+  teclas de transporte), SIG. CANCIÓN (ya está la flecha → junto al selector), el medidor SECCIÓN del
+  LCD, el tempo dentro del LCD, AJUSTES en la barra de estado y los contadores de Biblioteca y Partes.
+- La pantalla de la canción en Biblioteca reúne tempo, compás, duración y tonos listos.
+- Se quitó el LED de la lista de shows, que nunca se encendía.
+- Pestañas con ícono **y nombre**, en el orden del trabajo, como una cadena de señal:
+  BIBLIOTECA (stems apilados) → PARTES (cuadrícula con celdas tomadas) → SHOW (lista numerada) →
+  EN VIVO (play «al aire»), y AJUSTES (engranaje) aparte.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, fmtSemis, fmtTime, Song, SongSummary } from "../api";
-import { Readout, Lcd, Rack, RackUnit } from "../components/hardware";
+import { Lcd, Rack, RackUnit } from "../components/hardware";
 
 const KIND_CLASS: Record<string, string> = { chorus: "k-chorus", verse: "k-verse", prechorus: "k-pre", bridge: "k-bridge",
   intro: "k-intro", outro: "k-outro", interlude: "k-inter", tag: "k-tag" };
@@ -20,16 +20,11 @@ export default function LibraryPage() {
   return (
     <>
       <div className="header-strip">
-        <Readout label="CANCIONES" text={String(songs?.length ?? "—")} />
-        <Readout label="BPM" text={summary ? summary.bpm.toFixed(1) : "—"} />
-        <div className="hs-divider" />
-        <div className="hs-center">
-          <div className="hs-actions"><span className="hs-caption">BUSCAR EN LA BIBLIOTECA</span><span className="spacer" /><span className="text-btn disabled" title="Próximamente desde la app">IMPORTAR…</span></div>
+        <div className="hs-center wide">
+          <div className="hs-actions"><span className="hs-caption">BUSCAR EN LA BIBLIOTECA</span><span className="spacer" />
+            <span className="hs-caption">{songs ? `${shown.length} DE ${songs.length} CANCIONES` : ""}</span></div>
           <label className="preset-select"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Título de la canción" /></label>
         </div>
-        <div className="hs-divider" />
-        <Readout label="DURACIÓN" text={summary ? fmtTime(summary.durationS) : "—"} />
-        <Readout label="STEMS" text={String(summary?.stems ?? "—")} />
       </div>
       {err && <div className="banner warn">{err}</div>}
       <div className="split">
@@ -37,19 +32,22 @@ export default function LibraryPage() {
           {shown.map((s) => (
             <button key={s.folder} className={`browser-row ${s.folder === sel ? "sel" : ""}`} onClick={() => setSel(s.folder)}>
               <span className="br-title">{s.title}</span>
-              <span className="br-meta">{s.bpm.toFixed(0)} BPM · {fmtTime(s.durationS)} · {s.sections} secciones</span>
+              <span className="br-meta">{s.bpm.toFixed(0)} BPM · {fmtTime(s.durationS)}</span>
             </button>
           ))}
           {songs && shown.length === 0 && <div className="browser-empty">Nada con «{q}»</div>}
         </div>
         <Rack>
-          <RackUnit title={summary ? summary.title.toUpperCase() : "CANCIÓN"} subtitle={summary ? `${summary.bpm.toFixed(0)} BPM · ${summary.timeSignature} · ${summary.sections} secciones` : undefined}>
+          <RackUnit title={summary ? summary.title.toUpperCase() : "CANCIÓN"} subtitle={summary ? `${summary.sections} secciones · ${summary.stems} stems` : undefined}>
             {summary && song ? (
               <div className="song-detail">
                 <Lcd className="lcd-wide">
-                  <div className="lcd-row"><span className="lcd-key">TÍTULO</span><span className="lcd-key">TONOS LISTOS</span></div>
-                  <div className="lcd-row big"><span className="amber">{summary.title}</span>
-                    <span>{[0, ...summary.prepared.filter((p) => p !== 0)].map(fmtSemis).join(" · ")}</span></div>
+                  <div className="lcd-cells">
+                    <div><span className="lcd-key">TEMPO</span><b className="amber">{summary.bpm.toFixed(1)}</b></div>
+                    <div><span className="lcd-key">COMPÁS</span><b>{summary.timeSignature}</b></div>
+                    <div><span className="lcd-key">DURACIÓN</span><b>{fmtTime(summary.durationS)}</b></div>
+                    <div><span className="lcd-key">TONOS LISTOS</span><b>{[0, ...summary.prepared.filter((p) => p !== 0)].map(fmtSemis).join(" · ")}</b></div>
+                  </div>
                   <div className="lcd-row"><span className="lcd-key">ORIGEN</span><span className="path">{summary.source ?? "—"}</span></div>
                 </Lcd>
                 <div className="timeline" aria-label="Secciones">
