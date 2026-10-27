@@ -427,3 +427,20 @@ export function Key({ label, onClick, light, lightColor = "amber", blink, icon, 
     </div>
   );
 }
+
+/** Read-only value in a recessed window (a counter on real gear), so it never looks like
+ * something you can turn. Optional beat LED: pulses locally at `pulseBpm` (polling is too slow to follow
+ * the real beat, so it shows the speed, not the exact downbeat); 0 = off. */
+export function Readout({ label, text, unit, pulseBpm }: { label: string; text: string; unit?: string; pulseBpm?: number }) {
+  return (
+    <div className="readout">
+      <span className="silk">{label}</span>
+      <div className="readout-window">
+        {pulseBpm !== undefined && <span className={`readout-beat ${pulseBpm > 0 ? "pulse" : ""}`}
+          style={pulseBpm > 0 ? { animationDuration: `${60 / pulseBpm}s` } : undefined} />}
+        <span className="readout-digits">{text}</span>
+        {unit && <span className="readout-unit">{unit}</span>}
+      </div>
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, fmtSemis, fmtTime, Song, SongSummary } from "../api";
-import { FlatKnob, Lcd, Rack, RackUnit } from "../components/hardware";
+import { Readout, Lcd, Rack, RackUnit } from "../components/hardware";
 
 const KIND_CLASS: Record<string, string> = { chorus: "k-chorus", verse: "k-verse", prechorus: "k-pre", bridge: "k-bridge",
   intro: "k-intro", outro: "k-outro", interlude: "k-inter", tag: "k-tag" };
@@ -20,16 +20,16 @@ export default function LibraryPage() {
   return (
     <>
       <div className="header-strip">
-        <FlatKnob label="CANCIONES" value={Math.min(1, (songs?.length ?? 0) / 40)} text={String(songs?.length ?? "—")} />
-        <FlatKnob label="BPM" value={(summary?.bpm ?? 0) / 200} text={summary ? summary.bpm.toFixed(1) : "—"} />
+        <Readout label="CANCIONES" text={String(songs?.length ?? "—")} />
+        <Readout label="BPM" text={summary ? summary.bpm.toFixed(1) : "—"} />
         <div className="hs-divider" />
         <div className="hs-center">
           <div className="hs-actions"><span className="hs-caption">BUSCAR EN LA BIBLIOTECA</span><span className="spacer" /><span className="text-btn disabled" title="Próximamente desde la app">IMPORTAR…</span></div>
           <label className="preset-select"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Título de la canción" /></label>
         </div>
         <div className="hs-divider" />
-        <FlatKnob label="DURACIÓN" value={(summary?.durationS ?? 0) / 600} text={summary ? fmtTime(summary.durationS) : "—"} />
-        <FlatKnob label="STEMS" value={(summary?.stems ?? 0) / 32} text={String(summary?.stems ?? "—")} />
+        <Readout label="DURACIÓN" text={summary ? fmtTime(summary.durationS) : "—"} />
+        <Readout label="STEMS" text={String(summary?.stems ?? "—")} />
       </div>
       {err && <div className="banner warn">{err}</div>}
       <div className="split">

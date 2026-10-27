@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, Band, PartsMusician, PartsView, SongSummary } from "../api";
-import { FlatKnob, Lcd, Lever, ModeSelector, Rack, RackUnit } from "../components/hardware";
+import { Readout, Lcd, Lever, ModeSelector, Rack, RackUnit } from "../components/hardware";
 
 type Zoom = "22" | "30" | "42";
 type Matrix = Record<string, string[]>;
@@ -93,8 +93,8 @@ export default function MatrixPage() {
   return (
     <>
       <div className="header-strip">
-        <FlatKnob label="STEMS" value={(m?.stems.length ?? 0) / 8} text={String(m?.stems.length ?? "—")} />
-        <FlatKnob label="SECCIONES" value={(view?.sections.length ?? 0) / 32} text={String(view?.sections.length ?? "—")} />
+        <Readout label="STEMS" text={String(m?.stems.length ?? "—")} />
+        <Readout label="SECCIONES" text={String(view?.sections.length ?? "—")} />
         <div className="hs-divider" />
         <div className="hs-center">
           <div className="hs-actions">

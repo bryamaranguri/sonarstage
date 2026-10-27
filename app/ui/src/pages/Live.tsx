@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, Live, VoiceLine } from "../api";
-import { FlatKnob, Gauge, Key, Lcd, Led, Lever, ModeSelector, Rack, RackUnit, SectionMeter, Toggle } from "../components/hardware";
+import { Gauge, Key, Lcd, Led, Lever, ModeSelector, Rack, RackUnit, Readout, SectionMeter, Toggle } from "../components/hardware";
 import { loadVoiceSettings, saveVoiceSettings, WakeMode, WAKE_WORDS_BY_MODE } from "./Settings";
 
 const SONG_LOCATOR = /^\s*\d+\.\s/;
@@ -43,8 +43,8 @@ export default function LivePage({ live }: { live?: Live }) {
   return (
     <>
       <div className="header-strip">
-        <FlatKnob label="TEMPO" value={(st?.tempo ?? 0) / 200} text={st ? `${st.tempo.toFixed(1)} BPM` : "—"} />
-        <FlatKnob label="COMPÁS" value={bars ? bar / bars : 0} text={bars ? `${bar} / ${bars}` : "—"} />
+        <Readout label="TEMPO" text={st ? st.tempo.toFixed(1) : "—"} unit="BPM" pulseBpm={st?.playing ? st.tempo : 0} />
+        <Readout label="COMPÁS" text={bars ? `${bar}/${bars}` : "—"} />
         <div className="hs-divider" />
         <div className="hs-center">
           <div className="hs-actions">
