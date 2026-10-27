@@ -7,15 +7,18 @@ Writes <library>/<title>/ with originales/ (as they came), cancion.json (the rec
 roles, gains, tempo, sections) and analisis.json. No audio is printed here: gains are
 applied when a show is prepared (see render.py), which takes seconds per song. Only
 transposed versions, which are slow to compute, will be stored under preparada/<tono>/.
-Never touches the source pack and refuses to overwrite a song.
+Never touches the source pack and refuses to overwrite a song. When a song with that
+title is already there (the same song from another pack, often in another key), the new
+one goes to "<title> (<key>)" so both stay in the library.
 """
 import argparse
 import json
+import shutil
 import sys
 from collections import Counter
 from pathlib import Path
 
-from . import library, printing
+from . import library, musickey, printing
 from .analyze import analyze, print_summary
 from .audio_io import decode
 from .extract import PackError, extract_pack
@@ -24,10 +27,20 @@ from .extract import PackError, extract_pack
 def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, offsets_db=None, quiet=False):
     source = Path(source)
     title = title or library.title_from_source(source.name)
-    song_dir = Path(library_dir) / title
+    final_dir = Path(library_dir) / title
+    # work in a hidden folder: the final name may depend on the key
+    song_dir = Path(library_dir) / (".importando-" + library.slugify(title))
     if song_dir.exists():
-        raise PackError(f"Ya existe en la biblioteca: {song_dir}")
+        shutil.rmtree(song_dir)                      # leftover of an import that failed
     originals = song_dir / "originales"
+    try:
+        return _prepare(source, title, final_dir, song_dir, originals, target_lufs, offsets_db, quiet)
+    except BaseException:
+        shutil.rmtree(song_dir, ignore_errors=True)
+        raise
+
+
+def _prepare(source, title, final_dir, song_dir, originals, target_lufs, offsets_db, quiet):
     extract_pack(source, originals)
 
     report = analyze(originals, target_lufs)
@@ -63,16 +76,21 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
             "sourceFormat": f"{s['codec']} {s['bitrate_kbps']} kbps" if s["bitrate_kbps"] else s["codec"],
         })
 
-    t = report["tempo"]
-    meter = report.get("meter", {"beats_per_bar": 4, "downbeat_phase": 0})
-    first_down = t["first_beat_s"] + meter["downbeat_phase"] * 60 / t["bpm"]
     duration = max(s["duration_s"] or 0 for s in stems)
-    bars = library.total_bars(duration, t["bpm"], first_down, meter["beats_per_bar"])
+    bars = library.total_bars(duration, library.song_tempo(report, duration))
     sections = library.sections_from_cues(report.get("guide_cues", []), bars)
 
+    key = musickey.estimate([(s["role"], originals / s["file"]) for s in song_stems])
+    if final_dir.exists():
+        tag = key["key"] if key else "2"
+        final_dir = final_dir.with_name("%s (%s)" % (title, tag))
+        if final_dir.exists():
+            raise PackError(f"Ya existe en la biblioteca: {final_dir}")
+
     song = library.build_song_json(
-        song_id=library.slugify(title), title=title, source=source.name, report=report,
-        stems=song_stems, sections=sections, target_lufs=target_lufs, prepared_semitones=())
+        song_id=library.slugify(final_dir.name), title=title, source=source.name, report=report,
+        stems=song_stems, sections=sections, target_lufs=target_lufs, prepared_semitones=(),
+        duration_s=duration, key_estimate=key)
     error = library.validate(song)
     if error:
         raise PackError(f"cancion.json no cumple el esquema: {error}")
@@ -80,6 +98,8 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
     report["printing"] = {"sample_rate": sr, "song_gain_db": song_gain, "limited_by": limited_by,
                           "mix_before": {"lufs": round(measured["lufs"], 1), "peak_db": round(measured["peak_db"], 1)}}
     (song_dir / "analisis.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
+    song_dir.rename(final_dir)
+    song_dir = final_dir
 
     if not quiet:
         expected_lufs = measured["lufs"] + song_gain
@@ -87,6 +107,8 @@ def prepare(source, library_dir, title=None, target_lufs=printing.TARGET_LUFS, o
         print(f"Ganancia de la canción: {song_gain:+} dB (limitada por {limited_by}) "
               f"→ mezcla esperada {expected_lufs:.1f} LUFS, pico {measured['peak_db'] + song_gain:.1f} dBFS")
         print(f"Secciones provisionales: {len(sections)} · {bars} compases")
+        if key:
+            print(f"Tonalidad estimada: {key['key']} (por confirmar en la biblioteca; también {', '.join(key['candidates'][1:])})")
     return song_dir, song, report
 
 

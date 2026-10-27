@@ -22,7 +22,7 @@ export type Live = {
   ok: boolean;
   error?: string;
   state?: LiveState;
-  setlist?: { number: number; title: string; sections: string[] }[];
+  setlist?: { number: number; title: string; sections: string[]; key?: string | null; keyConfirmed?: boolean; semitones?: number }[];
   order?: number[];
   tracks?: string[];
   mutes?: Record<string, boolean>;
@@ -34,7 +34,9 @@ export type SongSummary = {
   folder: string;
   bpm: number;
   timeSignature: string;
-  key: string | null;
+  key: string | null;          // the confirmed key, else the estimate
+  keyConfirmed: boolean;
+  keyPending: boolean;         // still being estimated
   prepared: number[];
   sections: number;
   bars: number;
@@ -74,6 +76,7 @@ export const api = {
   status: () => call<Status>("GET", "status"),
   library: () => call<SongSummary[]>("GET", "library"),
   song: (folder: string) => call<Song>("GET", "library/" + encodeURIComponent(folder)),
+  setKey: (folder: string, key: string) => call<SongSummary>("POST", "library/" + encodeURIComponent(folder) + "/key", { key }),
   bands: () => call<Band[]>("GET", "bands"),
   shows: () => call<ShowInfo[]>("GET", "shows"),
   prepareShow: (body: unknown) => call<Job>("POST", "shows", body),
@@ -119,3 +122,23 @@ export function usePoll<T>(fn: () => Promise<T>, ms: number): [T | undefined, st
 
 export const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 export const fmtSemis = (n: number) => (n === 0 ? "Original" : (n > 0 ? "+" : "") + n);
+
+// keys as musicians write them (same spelling as the engine's musickey.py)
+export const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+export const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
+
+/** "G", +2 → "A"; unknown key → null. */
+export function keyAt(key: string | null | undefined, semitones: number): string | null {
+  if (!key) return null;
+  const minor = key.endsWith("m");
+  const list = minor ? MINOR_KEYS : MAJOR_KEYS;
+  const i = list.indexOf(key);
+  return i < 0 ? null : list[(((i + semitones) % 12) + 12) % 12];
+}
+
+/** "A (+2)", "G", or the offset alone when the key is unknown. */
+export const fmtKey = (key: string | null | undefined, semitones: number) => {
+  const k = keyAt(key, semitones);
+  if (!k) return fmtSemis(semitones);
+  return semitones ? `${k} (${semitones > 0 ? "+" : ""}${semitones})` : k;
+};

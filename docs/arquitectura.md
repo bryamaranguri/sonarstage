@@ -63,7 +63,11 @@ Entrada: ZIP, RAR o carpeta con WAV, MP3, M4A, FLAC o AIFF.
 4. **Alinear**: comparar ataques de cada stem contra el click y corregir o avisar
    desfases (típicos en MP3 de distintos codificadores).
 5. **Tempo y compases desde el click**: detección de golpes; el acento del click da
-   el primer tiempo. Resultado: mapa de tempo y posiciones de compás.
+   el primer tiempo. Resultado: **mapa de tempo** (`grid.py`): cada golpe numerado (una
+   parada del click cuenta los tiempos que deja en silencio) y ajustado con los menos
+   tramos de tempo constante que dejen cada golpe a ≤5 ms de la cuadrícula. Una canción
+   de tempo fijo queda en un tramo; un ritardando, en escalones. Se guarda siempre en
+   `cancion.json` (`tempo.map`), y todo lo que convierte compases a segundos lo usa.
 6. **Secciones desde la guía**: transcripción offline (Whisper) en español o inglés;
    los nombres ("intro", "verso 2", "coro", "puente"…) se ajustan al compás más cercano.
 7. **Tonalidad**: estimación sobre stems armónicos; el usuario confirma.
@@ -133,11 +137,29 @@ Después del show, un botón borra la copia del disco interno.
   declara la versión de la plantilla (hoy 12.0.5), así que abre en esa versión o posterior.
 - Se renumeran las IDs de objetos automatizables (`*Target`, `Pointee`) y se ajusta
   `NextPointeeId`.
-- Canciones seguidas en el arrangement, separadas por una pausa (30 s por defecto) y
-  empezando en compás. **Automatización de tempo** en Main: un escalón por canción.
-- **Clips sin warp**: el audio suena tal cual, sin estirarse en el escenario.
+- Canciones seguidas en el arrangement, separadas por una pausa (30 s por defecto), con
+  el **compás 1 de cada canción en una línea de compás** (si el audio empieza antes, el
+  clip empieza antes).
+- **Clips sin warp**: el audio suena tal cual, sin estirarse en el escenario. Por eso la
+  cuadrícula de Live sigue al audio: la **automatización de tempo** en Main se escribe
+  desde el mapa de tempo de cada canción, con un escalón en cada cambio. El click, los
+  locators, los cambios MIDI, el MIDI Clock y los saltos por voz caen así sobre los
+  tiempos que escucha la banda, aunque la canción cambie de tempo.
 - **Locators**: uno por canción ("1. Título") y uno por sección.
 - Una pista por rol de cue (Click, Guía), aunque cada fuente los nombre distinto.
+- **Click MIDI (decidido e implementado el 27/10/2026)**: el click deja de ser el audio
+  del paquete y pasa a ser un **Drum Rack** con un clip MIDI generado sobre el mapa de
+  tempo. Así suena igual en todas las canciones (cada paquete trae otro click, en
+  corcheas y sin acento en el 1), marca el tiempo 1, se puede elegir negras o corcheas
+  por canción o sección, y sigue a los bucles y saltos. Su riesgo es desfasarse si el
+  mapa está mal; por eso el importador compara el click generado con el original y
+  avisa si se separan más de 10 ms, y el click original queda muteado en CUES («Click
+  original») como respaldo mientras se gana confianza. El clip MIDI tiene una nota en
+  cada tiempo donde suena el click del paquete (cuenta incluida, paradas en silencio),
+  hoy en negras. La plantilla del click es un set aparte (`material/referencia-click
+  Project`): el show declara la versión más nueva entre ella y la plantilla principal
+  (hoy 12.4.3, así que el amigo en 12.0 necesita su propia plantilla del click). El Drum Rack se clona de una pista de
+  la plantilla y SonarStage trae sus propios samples de click (`importer/sonarstage_import/assets/click/`: sonido tipo «Klopf» suavizado: tonal, ataque de 3 ms, caída de altura leve y cola que se apaga sola, elegido por Bryam entre tres opciones el 27/10/2026; acento en C1 = nota 36, resto de tiempos en C#1 = nota 37).
 - Perfil de 2 salidas: Main (secuencia + en vivo) a la salida 1 mono y CUES a la 2 mono.
   Requiere activar las salidas 1 y 2 como mono en *Preferencias → Audio → Output Config*.
 

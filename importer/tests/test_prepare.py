@@ -127,11 +127,16 @@ def test_render_refuses_missing_transposed_version(pack, tmp_path):
         render_song(song_dir, tmp_path / "show", semitones=-2)
 
 
-def test_refuses_to_overwrite_a_song(pack, tmp_path):
+def test_same_title_again_goes_next_to_it_with_its_key(pack, tmp_path):
     lib = tmp_path / "Biblioteca"
-    prepare(pack, lib, quiet=True)
-    with pytest.raises(PackError):
+    first, song, _ = prepare(pack, lib, quiet=True)
+    assert song["key"]["estimated"] and song["key"]["confirmed"] is False and song["key"]["original"] == "?"
+    second, again, _ = prepare(pack, lib, quiet=True)
+    assert first.exists() and second.name == "Test Song (%s)" % song["key"]["estimated"]
+    assert again["title"] == "Test Song" and again["id"] != song["id"]
+    with pytest.raises(PackError):                    # never overwrites
         prepare(pack, lib, quiet=True)
+    assert sorted(d.name for d in lib.iterdir()) == ["Test Song", second.name]   # no half import left
 
 
 def test_rejects_path_traversal(tmp_path):

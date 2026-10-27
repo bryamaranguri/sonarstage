@@ -41,9 +41,18 @@ def bar_position(t, beats, beats_per_bar=4, phase=0, snap_beats=0.05):
     return k // beats_per_bar + 1, round(k % beats_per_bar + 1 + frac, 2)
 
 
-def guide_cues(guide, sr, beats, beats_per_bar=4, phase=0):
+def grid_position(t, grid, snap_beats=0.05):
+    """1-based (bar, beat) of time t on a tempo map (grid.Grid); same snapping as above."""
+    k = grid.beat(t)
+    whole = int(np.floor(k + snap_beats))
+    frac = max(0.0, k - whole)
+    return whole // grid.bpb + 1, round(whole % grid.bpb + 1 + frac, 2)
+
+
+def guide_cues(guide, sr, beats, beats_per_bar=4, phase=0, grid=None):
     cues = []
     for a, b in speech_segments(guide, sr):
-        bar, beat = bar_position(a, beats, beats_per_bar, phase)
+        bar, beat = (grid_position(a, grid) if grid is not None
+                     else bar_position(a, beats, beats_per_bar, phase))
         cues.append({"time_s": round(a, 2), "duration_s": round(b - a, 2), "bar": int(bar), "beat": beat})
     return cues

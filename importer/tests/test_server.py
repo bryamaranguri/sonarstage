@@ -85,7 +85,7 @@ def test_prepare_show_runs_as_a_job(api, monkeypatch):
     call, engine, sent, tmp = api
     seen = {}
 
-    def fake_prepare(library, out, template, specs, band, present, profile, gap, sr):
+    def fake_prepare(library, out, template, specs, band, present, profile, gap, sr, talkback=None, click_template=None):
         seen.update(specs=specs, profile=profile, band=band and band["id"])
         out.mkdir(parents=True)
         (out / "show.json").write_text(json.dumps({"songs": [{"title": "Alegras mis días", "semitones": 1}],
@@ -149,3 +149,33 @@ def test_parts_matrix_over_the_api(api, monkeypatch):
             break
         time.sleep(0.05)
     assert r == {"ready": True, "levels": {"EG 1": [-80.0, -12.0]}}
+
+
+def test_key_shows_the_estimate_until_confirmed(api):
+    call, engine, sent, tmp = api
+    path = tmp / "biblioteca" / "Alegras mis días" / "cancion.json"
+    song = json.loads(path.read_text())
+    song["key"].update(estimated="B", confidence=0.2, confirmed=False)
+    path.write_text(json.dumps(song))
+    s = call("GET", "/api/library")[1][0]
+    assert (s["key"], s["keyConfirmed"], s["keyPending"]) == ("B", False, False)
+    status, s = call("POST", "/api/library/Alegras%20mis%20d%C3%ADas/key", {"key": "A#"})
+    assert status == 200 and (s["key"], s["keyConfirmed"]) == ("Bb", True)
+    assert json.loads(path.read_text())["key"]["original"] == "Bb"
+    assert call("POST", "/api/library/Alegras%20mis%20d%C3%ADas/key", {"key": "H"})[0] == 400
+    s = call("POST", "/api/library/Alegras%20mis%20d%C3%ADas/key", {"key": ""})[1]
+    assert (s["key"], s["keyConfirmed"]) == ("B", False)
+
+
+def test_live_setlist_carries_the_key_of_the_open_show(api):
+    call, engine, sent, tmp = api
+    path = tmp / "biblioteca" / "Alegras mis días" / "cancion.json"
+    song = json.loads(path.read_text())
+    song["key"].update(original="B", confirmed=True)
+    path.write_text(json.dumps(song))
+    assert "key" not in call("GET", "/api/live")[1]["setlist"][0]          # no show matches: no guess
+    show = tmp / "shows" / "Domingo"
+    show.mkdir(parents=True)
+    (show / "show.json").write_text(json.dumps({"songs": [{"title": "Alegras mis días", "semitones": 1}], "als": "x.als"}))
+    s = call("GET", "/api/live")[1]["setlist"][0]
+    assert (s["key"], s["keyConfirmed"], s["semitones"]) == ("C", True, 1)

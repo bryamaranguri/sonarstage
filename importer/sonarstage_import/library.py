@@ -6,6 +6,8 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import grid
+
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "shared" / "cancion.schema.json"
 
 
@@ -57,33 +59,44 @@ def sections_from_cues(cues, total_bars, min_gap_bars=2, lead_bars=1):
     return sections
 
 
-def total_bars(duration_s, bpm, first_downbeat_s, beats_per_bar):
-    bar_s = 60 / bpm * beats_per_bar
-    return max(1, math.ceil((duration_s - first_downbeat_s) / bar_s))
+def total_bars(duration_s, tempo):
+    g = grid.Grid(tempo)
+    return max(1, math.ceil(g.beat(duration_s) / g.bpb - 1e-9))
 
 
-def build_song_json(*, song_id, title, source, report, stems, sections, target_lufs, prepared_semitones=(0,)):
+def song_tempo(report, duration_s=None):
+    """cancion.json tempo from the analysis: the map, plus the main tempo and bar 1."""
     t = report["tempo"]
     meter = report.get("meter", {})
     bpb = meter.get("beats_per_bar", 4)
     phase = meter.get("downbeat_phase", 0)
+    tmap = t.get("map") or []
+    if not tmap:
+        return {"bpm": t["bpm"], "timeSignature": f"{bpb}/4", "map": [],
+                "firstDownbeatSec": round(t["first_beat_s"] + phase * 60 / t["bpm"], 4)}
+    g = grid.Grid({"bpm": tmap[0]["bpm"], "timeSignature": f"{bpb}/4", "map": tmap})
+    end = g.beat(duration_s) if duration_s else None
+    return {"bpm": grid.main_bpm(tmap, end), "timeSignature": f"{bpb}/4", "map": tmap,
+            "firstDownbeatSec": round(max(0.0, g.sec(0)), 4)}
+
+
+def build_song_json(*, song_id, title, source, report, stems, sections, target_lufs, prepared_semitones=(0,),
+                    duration_s=None, key_estimate=None):
+    key = {"original": "?", "prepared": list(prepared_semitones)}
+    if key_estimate:
+        key.update(estimated=key_estimate["key"], confidence=key_estimate["confidence"], confirmed=False)
     return {
         "schemaVersion": 1,
         "id": song_id,
         "title": title,
         "source": source,
         "importedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "tempo": {
-            "bpm": t["bpm"],
-            "timeSignature": f"{bpb}/4",
-            "map": [],   # tempo changes: pending (both tested packs are constant)
-            "firstDownbeatSec": round(t["first_beat_s"] + phase * 60 / t["bpm"], 4),
-        },
-        "key": {"original": "?", "prepared": list(prepared_semitones)},
+        "tempo": song_tempo(report, duration_s),
+        "key": key,
         "sections": sections,
         "stems": stems,
         "mix": {"targetLufs": target_lufs, "songOffsetDb": 0},
-        "notes": "Secciones provisionales desde la guía; tonalidad pendiente.",
+        "notes": "Secciones provisionales desde la guía; tonalidad estimada, por confirmar.",
     }
 
 

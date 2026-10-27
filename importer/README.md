@@ -27,6 +27,7 @@ python -m pytest tests                 # pruebas que no necesitan audio
 | `audio_io` | Decodifica con ffmpeg (respeta gapless MP3 y priming AAC) |
 | `roles` | Rol de cada stem por su nombre (español e inglés) |
 | `tempo` | Click → tiempos, BPM, cambios; bombo → compás y primer tiempo |
+| `grid` | Mapa de tempo desde los golpes del click y conversión compás ↔ segundo |
 | `align` | Desfase de cada stem respecto al click |
 | `levels` | LUFS, pico, actividad y compatibilidad mono; mezcla completa |
 | `guide` | Dónde habla la guía, en compás y tiempo |

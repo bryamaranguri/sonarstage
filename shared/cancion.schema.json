@@ -54,18 +54,23 @@
         },
         "map": {
           "type": "array",
-          "description": "Cambios de tempo (vacío si es constante).",
+          "description": "Mapa de tempo desde el click: tramos de tempo constante, cada uno hasta el siguiente (el primero cubre también el inicio del archivo; el último, el final). Vacío en canciones importadas antes: un solo tempo desde firstDownbeatSec.",
           "items": {
             "type": "object",
             "required": [
-              "bar",
+              "beat",
+              "sec",
               "bpm"
             ],
             "additionalProperties": false,
             "properties": {
-              "bar": {
+              "beat": {
                 "type": "integer",
-                "minimum": 1
+                "description": "Tiempo donde empieza el tramo, contado desde el tiempo 1 del compás 1 (= 0); negativo antes."
+              },
+              "sec": {
+                "type": "number",
+                "description": "Segundo del archivo en que cae ese tiempo."
               },
               "bpm": {
                 "type": "number",
@@ -90,7 +95,19 @@
       "properties": {
         "original": {
           "type": "string",
-          "description": "Tonalidad original, p. ej. G o Em."
+          "description": "Tonalidad original, p. ej. G o Em. «?» mientras nadie la confirme."
+        },
+        "estimated": {
+          "type": "string",
+          "description": "Tonalidad estimada desde los stems armónicos (sugerencia)."
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Margen de la estimación sobre la segunda candidata (0 = dudosa)."
+        },
+        "confirmed": {
+          "type": "boolean",
+          "description": "El usuario confirmó o corrigió «original»."
         },
         "prepared": {
           "type": "array",

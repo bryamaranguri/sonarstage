@@ -33,6 +33,18 @@ Dos paquetes descargados por Bryam: *Alegras mis días* (Su Presencia) y *Holy F
   primer tiempo se deduce del bombo y se confirma con la guía.
 - Ambos empiezan con el click en el segundo 0 (cuenta inicial incluida).
 
+### Mapa de tempo (27/10/2026)
+
+- Las dos canciones quedan en **un solo tramo** (128 y 72 BPM exactos): el click cae a
+  ±4.0 ms (Alegras, MP3) y ±0.02 ms (Holy Forever) de la cuadrícula. Las secciones salen
+  idénticas a las de antes y el show queda igual (Alegras empieza en el compás 107).
+- Con un click sintético (120 → ritardando a 90 → 2 compases sin click → 100 BPM) el
+  mapa queda en 10 tramos, a ±2.5 ms, y los 8 tiempos sin click se cuentan bien. Show de
+  prueba: `material/shows/Prueba 4 - mapa de tempo`.
+- Límite conocido: si el click se detiene y la música vuelve en un punto que no es un
+  número entero de tiempos al tempo anterior (un calderón), se redondea al tiempo más
+  cercano y el compás siguiente puede quedar corrido. El importador lo avisa.
+
 ## Guía
 
 - Sin reconocimiento de voz (el modelo no se puede descargar en estos entornos; se

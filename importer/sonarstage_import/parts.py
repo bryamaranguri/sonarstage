@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import printing
+from . import grid, printing
 from .audio_io import decode
 
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "shared"
@@ -71,11 +71,9 @@ def section_bounds(song, n_frames, sr):
     A section with `pickupBeats` (anacrusis) starts that many beats before its downbeat,
     so notes leading into it belong to whoever plays it.
     """
-    beat_s = 60 / song["tempo"]["bpm"]
-    bar_s = beats_per_bar(song) * beat_s
-    t0 = song["tempo"].get("firstDownbeatSec", 0.0)
+    g = grid.Grid(song["tempo"])
     starts = [s["startBar"] for s in song["sections"]]
-    frames = [0] + [min(n_frames, max(0, round((t0 + (s["startBar"] - 1) * bar_s - s.get("pickupBeats", 0) * beat_s) * sr)))
+    frames = [0] + [min(n_frames, max(0, round(g.bar_sec(s["startBar"], -s.get("pickupBeats", 0)) * sr)))
                     for s in song["sections"][1:]]
     return [(b, a, frames[i + 1] if i + 1 < len(frames) else n_frames) for i, (b, a) in enumerate(zip(starts, frames))]
 

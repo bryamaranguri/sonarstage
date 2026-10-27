@@ -19,6 +19,8 @@ from pathlib import Path
 
 import numpy as np
 
+from . import grid
+
 from .audio_io import decode
 
 SR = 16000
@@ -80,9 +82,7 @@ def transcribe(audio_16k, model="small", model_dir=None, language=None):
 
 
 def bar_time(song, bar):
-    t = song["tempo"]
-    bpb = int(t["timeSignature"].split("/")[0])
-    return t.get("firstDownbeatSec", 0.0) + (bar - 1) * bpb * 60.0 / t["bpm"]
+    return grid.Grid(song["tempo"]).bar_sec(bar)
 
 
 def propose(song, words, window_bars=2):

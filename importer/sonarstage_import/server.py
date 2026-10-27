@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from . import link_client
+from . import grid, link_client
 
 HOST, PORT = "127.0.0.1", 11011
 UI_DIR = Path(__file__).resolve().parents[2] / "app" / "ui" / "dist"
@@ -43,7 +43,10 @@ class Config(object):
         self.shows = Path(shows) if shows else m / "shows"
         self.models = Path(models) if models else m / "modelos"
         self.voices = Path(voices) if voices else m / "voces"
-        self.template = Path(template) if template else next(iter(sorted(m.glob("* Project/*.als"))), None)
+        # the click template (a set with only the click Drum Rack) is never the show template
+        projects = sorted(m.glob("* Project/*.als"))
+        self.template = Path(template) if template else next((p for p in projects if "click" not in p.name.lower()), None)
+        self.click_template = next((p for p in projects if "click" in p.name.lower()), None)
 
     def public(self):
         return {k: str(v) if v else None for k, v in vars(self).items()}
@@ -57,11 +60,62 @@ def song_summary(song_dir):
     last = song["sections"][-1] if song["sections"] else None
     bars = (last["startBar"] + last["bars"] - 1) if last else 0
     return {"id": song["id"], "title": song["title"], "folder": song_dir.name, "bpm": song["tempo"]["bpm"],
-            "timeSignature": song["tempo"]["timeSignature"], "key": song["key"].get("original"),
+            "timeSignature": song["tempo"]["timeSignature"], **key_fields(song["key"]),
             "prepared": song["key"].get("prepared", [0]), "sections": len(song["sections"]),
-            "bars": bars, "durationS": round(bars * bpb * 60 / song["tempo"]["bpm"], 1),
+            "bars": bars, "durationS": round(grid.Grid(song["tempo"]).bar_sec(bars + 1) - grid.Grid(song["tempo"]).bar_sec(1), 1),
             "stems": len(song["stems"]), "parts": sorted(song.get("parts", {})),
             "source": song.get("source", {}).get("name") if isinstance(song.get("source"), dict) else song.get("source")}
+
+
+def key_fields(k):
+    """The key to show: the confirmed one, else the estimate (marked as such)."""
+    from . import musickey
+    confirmed = bool(k.get("confirmed")) and k.get("original", "?") != "?"
+    shown = k.get("original") if confirmed else k.get("estimated")
+    try:
+        shown = musickey.normalize(shown)
+    except musickey.KeyError_:
+        shown = None
+    return {"key": shown, "keyConfirmed": confirmed, "keyPending": not confirmed and "estimated" not in k}
+
+
+def set_key(cfg, folder, key):
+    """Confirm or correct the song's key. Empty key: back to the estimate."""
+    from . import musickey
+    path = song_dir(cfg, folder) / "cancion.json"
+    song = json.loads(path.read_text())
+    if key:
+        try:
+            song["key"]["original"] = musickey.normalize(key)
+        except musickey.KeyError_ as e:
+            raise ApiError(400, str(e))
+        song["key"]["confirmed"] = True
+    else:
+        song["key"]["original"], song["key"]["confirmed"] = "?", False
+    path.write_text(json.dumps(song, indent=1, ensure_ascii=False))
+    return song_summary(path.parent)
+
+
+def estimate_missing_keys(cfg, lock):
+    """Songs imported before the key estimate get one, in the background (seconds each)."""
+    from . import musickey
+    for d in sorted(cfg.library.iterdir()) if cfg.library.is_dir() else []:
+        path = d / "cancion.json"
+        if d.name.startswith(("_", ".")) or not path.exists():
+            continue
+        try:
+            if "estimated" in json.loads(path.read_text())["key"]:
+                continue
+            est = musickey.estimate_song(d)
+            if not est:
+                continue
+            with lock:
+                song = json.loads(path.read_text())
+                song["key"].update(estimated=est["key"], confidence=est["confidence"])
+                song["key"].setdefault("confirmed", False)
+                path.write_text(json.dumps(song, indent=1, ensure_ascii=False))
+        except Exception as e:                           # one bad song must not stop the rest
+            print("Tonalidad de %s: %s" % (d.name, e), file=sys.stderr)
 
 
 def list_library(cfg):
@@ -101,6 +155,30 @@ def list_shows(cfg):
                             "band": info.get("band"), "profile": info.get("profile"),
                             "liveVersion": info.get("live_version"), "als": str(d / info.get("als", ""))})
     return out
+
+
+def live_keys(cfg, titles):
+    """Key of each song in the show open in Ableton, in the key it was prepared in.
+
+    Ableton only knows the titles, so the show is found by its song list (the newest show
+    with exactly those titles, in that order). No match → None: an unknown key is better
+    than a wrong one on stage."""
+    from . import musickey
+    titles = [t for t in titles]
+    for show in list_shows(cfg):
+        if [s["title"] for s in show["songs"]] != titles:
+            continue
+        keys = []
+        for s in show["songs"]:
+            path = cfg.library / s["title"] / "cancion.json"
+            k = None
+            if path.exists():
+                f = key_fields(json.loads(path.read_text())["key"])
+                k = {"key": musickey.transpose(f["key"], s["semitones"]), "keyConfirmed": f["keyConfirmed"],
+                     "semitones": s["semitones"]} if f["key"] else None
+            keys.append(k)
+        return keys
+    return None
 
 
 # --- parts matrix ---------------------------------------------------------------------------
@@ -175,7 +253,8 @@ def prepare_show_job(cfg, body):
         raise ApiError(409, "Ya existe un show llamado «%s»" % name)
     if cfg.template is None or not cfg.template.exists():
         raise ApiError(400, "Falta la plantilla de Ableton")
-    specs = ["%s:%d" % (s["title"], int(s.get("semitones", 0))) for s in songs]
+    # the library folder, not the title: the same song can be there twice, in two keys
+    specs = ["%s:%d" % (s.get("folder") or s["title"], int(s.get("semitones", 0))) for s in songs]
     band = None
     if body.get("band"):
         path = cfg.library / "_bandas" / ("%s.json" % body["band"])
@@ -185,7 +264,9 @@ def prepare_show_job(cfg, body):
     def run():
         result, report = prepare_show(cfg.library, out, cfg.template, specs, band, present,
                                       body.get("profile", "2"), float(body.get("gap", 30)),
-                                      int(body.get("sampleRate", 48000)))
+                                      int(body.get("sampleRate", 48000)),
+                                      talkback=int(body["talkback"]) if body.get("talkback") else None,
+                                      click_template=cfg.click_template)
         return {"als": str(result["als"]), "version": result["version"], "songs": report,
                 "tracks": ["%s/%s" % t for t in result["tracks"]]}
     return run
@@ -260,6 +341,8 @@ class Engine(object):
         self.voice = Voice(cfg, send)
         self.lock = threading.Lock()
         self.activity_jobs = {}
+        self.keys_thread = None
+        self.live_keys_cache = (None, None)
 
     def route(self, method, path, query, body):
         parts = [unquote(p) for p in path.strip("/").split("/")][1:]          # after "api"
@@ -270,8 +353,15 @@ class Engine(object):
                     "voice": {"running": self.voice.running()}}
         if key == ("GET", "library"):
             if len(parts) == 1:
-                return list_library(self.cfg)
+                songs = list_library(self.cfg)
+                if any(s.get("keyPending") for s in songs) and not (self.keys_thread and self.keys_thread.is_alive()):
+                    self.keys_thread = threading.Thread(target=estimate_missing_keys, args=(self.cfg, self.lock), daemon=True)
+                    self.keys_thread.start()
+                return songs
             return json.loads((song_dir(self.cfg, parts[1]) / "cancion.json").read_text())
+        if key == ("POST", "library") and len(parts) == 3 and parts[2] == "key":
+            with self.lock:
+                return set_key(self.cfg, parts[1], (body.get("key") or "").strip())
         if key == ("GET", "parts") and len(parts) == 2:
             return parts_view(self.cfg, parts[1], query.get("band", ""))
         if key == ("GET", "parts") and len(parts) == 3 and parts[2] == "activity":
@@ -304,8 +394,11 @@ class Engine(object):
             return self.jobs.get(parts[1])
         if key == ("GET", "live"):
             r = self.send({"cmd": "setlist"})
+            setlist = r.get("setlist")
+            if setlist:
+                setlist = self.with_keys(setlist)
             return {"ok": bool(r.get("ok")), "error": r.get("error"), "state": r.get("state"),
-                    "setlist": r.get("setlist"), "order": r.get("order"), "tracks": r.get("tracks"),
+                    "setlist": setlist, "order": r.get("order"), "tracks": r.get("tracks"),
                     "mutes": r.get("mutes")}
         if key == ("POST", "live"):
             if not isinstance(body, dict) or "cmd" not in body:
@@ -324,6 +417,23 @@ class Engine(object):
             if action == "stop":
                 return self.voice.stop()
         raise ApiError(404, "No existe %s %s" % (method, path))
+
+    def with_keys(self, setlist):
+        """Add each song's key; the live screen polls often, so it is worked out once per
+        setlist and again only when the shows or the library change."""
+        titles = tuple(s.get("title") for s in setlist)
+        stamp = (tuple(p.stat().st_mtime for p in (self.cfg.shows, self.cfg.library) if p.exists()),
+                 int(time.time() // 5))                   # a key confirmed in the library shows up within 5 s
+        cached_key, keys = self.live_keys_cache
+        if cached_key != (titles, stamp):
+            try:
+                keys = live_keys(self.cfg, list(titles))
+            except Exception:
+                keys = None
+            self.live_keys_cache = ((titles, stamp), keys)
+        if not keys:
+            return setlist
+        return [dict(s, **(k or {})) for s, k in zip(setlist, keys)]
 
     def activity(self, folder):
         """Levels per stem and section; computed once in the background, then cached."""

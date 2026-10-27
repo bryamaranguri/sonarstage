@@ -19,7 +19,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import parts
+from . import grid, parts
 
 HX_SNAPSHOT_CC = 69
 TAP_LENGTH = 0.125        # beats each tap stays high
@@ -68,15 +68,14 @@ def set_change(song_dir, band, device_id, section_number, preset=None, snapshot=
 
 
 def _section_beat(song, start_bar):
-    t = song["tempo"]
-    bpb = int(t["timeSignature"].split("/")[0])
-    offset = t.get("firstDownbeatSec", 0)
-    first = offset * t["bpm"] / 60 if offset > 0.02 else 0.0
-    return first + (start_bar - 1) * bpb
+    return (start_bar - 1) * grid.Grid(song["tempo"]).bpb
 
 
 def lanes(song, band, song_beats):
-    """MIDI lanes of one song for the show generator (times in beats from the song start)."""
+    """MIDI lanes of one song for the show generator.
+
+    Times in beats from beat 1 of bar 1 (the show puts it on a bar line); `song_beats`
+    is where the song ends, on the same count."""
     result = []
     for device in band.get("midiDevices", []):
         events = []

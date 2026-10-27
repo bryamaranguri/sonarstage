@@ -39,6 +39,9 @@ export default function LivePage({ live }: { live?: Live }) {
     return sections.findIndex((n) => n === st.section);
   })();
   const songIdx = order.indexOf(st?.song ?? -1);
+  // "2. Holy Forever" → the key that song was prepared in
+  const nextSong = songs.find((s) => st?.next_song && (st.next_song === `${s.number}. ${s.title}` || st.next_song === s.title));
+  const nextKey = nextSong?.key ? `${nextSong.key}${nextSong.keyConfirmed ? "" : "?"}` : null;
 
   return (
     <>
@@ -58,7 +61,7 @@ export default function LivePage({ live }: { live?: Live }) {
               {!st && <option value="">Abre un show en Ableton</option>}
               {order.map((n) => {
                 const s = songs.find((x) => x.number === n);
-                return s ? <option key={n} value={n}>{`${n}. ${s.title}`}</option> : null;
+                return s ? <option key={n} value={n}>{`${n}. ${s.title}${s.key ? `  ·  ${s.key}` : ""}`}</option> : null;
               })}
             </select>
             <span className="chev">⌄</span>
@@ -93,14 +96,15 @@ export default function LivePage({ live }: { live?: Live }) {
               <SectionMeter progress={progress} lastBarFrom={bars ? (bars - 1) / bars : 1} label={sectionName.toUpperCase()}
                 sub={bars ? `COMPÁS ${bar} DE ${bars}` : "DETENIDO"} bars={bars} />
               <Lcd className="lcd-seq">
-                <div className="lcd-row"><span className="lcd-key">CANCIÓN</span><span className="lcd-key">{st?.loop ? "EN BUCLE" : ""}</span></div>
+                <div className="lcd-row"><span className="lcd-key">CANCIÓN</span><span className="lcd-key">TONO</span></div>
                 <div className="lcd-row big">
                   <span className="amber">{st?.song_title ?? "—"}</span>
-                  <span className={st?.loop ? "amber" : ""}>{st?.loop ? sectionName.toUpperCase() : ""}</span>
+                  <span title={current?.key && !current.keyConfirmed ? "Tono estimado, sin confirmar en la biblioteca" : undefined}>
+                    {current?.key ? `${current.key}${current.keyConfirmed ? "" : "?"}` : "—"}</span>
                 </div>
                 <div className="lcd-row">
                   <span className="lcd-key">{target ? "VA A" : "DESPUÉS"}</span>
-                  <span className={target ? "amber blink-soft" : ""}>{target ?? (st?.next_song ?? "—")}</span>
+                  <span className={target ? "amber blink-soft" : ""}>{target ?? (st?.next_song ? `${st.next_song}${nextKey ? ` · ${nextKey}` : ""}` : "—")}</span>
                 </div>
                 <Gauge label="CANCIÓN" value={sections.length ? (currentIndex + 1) / sections.length : 0}
                   text={sections.length ? `${Math.max(0, currentIndex + 1)}/${sections.length}` : "—"} />

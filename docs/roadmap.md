@@ -9,9 +9,11 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [ ] Clasificación de stems por nombre + confirmación — *clasificación lista; falta la confirmación*
 - [x] Alineación de stems contra el click (prototipo)
 - [x] Tempo, compás y primer tiempo desde click + bombo (prototipo)
+- [x] Mapa de tempo completo desde el click (cambios de tempo, ritardandos, paradas) y automatización de tempo del show desde el mapa — *falta abrir `Prueba 4 - mapa de tempo` en Live y comprobar que el metrónomo de Live coincide con el click en el ritardando y después de la parada*
+- [x] Click MIDI con Drum Rack sobre el mapa de tempo (acento en el 1), comparado contra el click original; click de audio muteado como «Click original» — *plantilla `referencia-click` en 12.4.3: falta abrir `Prueba 5 - click MIDI` en Live, rehacer la plantilla en 12.0 para el amigo y elegir negras/corcheas por sección*
 - [x] Medición de volumen, saturación y compatibilidad mono (prototipo)
 - [x] Secciones desde la guía (Whisper, es/en) — *probado con las dos canciones; falta llevarlo a la pantalla de revisión*
-- [ ] Estimación de tonalidad
+- [x] Estimación de tonalidad (stems armónicos; el usuario la confirma en la biblioteca)
 - [ ] Mezcla por plantilla de roles + normalización LUFS de la canción
 - [x] Cambio de tono offline en stems armónicos (compensación de desfase y de volumen)
 - [x] Banda, configuración semanal y matriz de partes (una pista EN VIVO por músico) — *por línea de comandos; falta la interfaz*
@@ -25,6 +27,7 @@ Prototipo de análisis probado con dos paquetes reales: ver `hallazgos-paquetes.
 - [x] Guía inteligente — *se silencia mientras hay un salto pendiente o un bucle; falta el aviso hablado de la próxima sección cuando el salto no es lineal*
 - [ ] Mute/desmute instantáneo de pistas en vivo
 - [ ] Control por voz (offline, palabra de activación, confirmación en el click) — *listo en Terminal con confirmación en la barra de estado de Live; falta probarlo con el micrófono real y la confirmación audible*
+- [x] Talkback: el micrófono del director a los in-ears con el click (pista TALKBACK en CUES) — *falta probarlo en Live; el Gate va en una pista TALKBACK de la plantilla de cada usuario*
 - [ ] Pedal MIDI
 
 ## Fase 3 — Cifrados

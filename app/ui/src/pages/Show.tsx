@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, Band, fmtSemis, fmtTime, Job, ShowInfo, SongSummary } from "../api";
+import { api, Band, fmtKey, fmtSemis, fmtTime, Job, ShowInfo, SongSummary } from "../api";
 import { Lcd, Rack, RackUnit, Screw, Toggle } from "../components/hardware";
 import { loadVoiceSettings } from "./Settings";
 
@@ -68,7 +68,7 @@ export default function ShowPage() {
   const prepare = async () => {
     setErr(undefined);
     try {
-      setJob(await api.prepareShow({ name, songs: picks.map((p) => ({ title: p.title, semitones: p.semitones })),
+      setJob(await api.prepareShow({ name, songs: picks.map((p) => ({ folder: p.folder, title: p.title, semitones: p.semitones })),
         band: band || undefined, present: present ?? undefined, profile, talkback: talkback ? micInput : undefined }));
     } catch (e: any) {
       setErr(e.message);
@@ -114,7 +114,7 @@ export default function ShowPage() {
           {songs.map((s) => (
             <button key={s.folder} className="browser-row" onClick={() => add(s)}>
               <span className="br-title">{s.title}</span>
-              <span className="br-meta">{s.bpm.toFixed(0)} BPM · {fmtTime(s.durationS)}</span>
+              <span className="br-meta">{s.key ? `${s.key}${s.keyConfirmed ? "" : "?"} · ` : ""}{s.bpm.toFixed(0)} BPM · {fmtTime(s.durationS)}</span>
               <span className="br-add">＋</span>
             </button>
           ))}
@@ -129,7 +129,7 @@ export default function ShowPage() {
               <span className="cas-title">{p.title}</span>
               <div className="cas-key">
                 <button onClick={() => cycleKey(i, -1)} aria-label="Bajar tono">◀</button>
-                <span>{fmtSemis(p.semitones)}</span>
+                <span title={fmtSemis(p.semitones)}>{fmtKey(songs.find((s) => s.folder === p.folder)?.key, p.semitones)}</span>
                 <button onClick={() => cycleKey(i, +1)} aria-label="Subir tono">▶</button>
               </div>
               <div className="cas-move">
